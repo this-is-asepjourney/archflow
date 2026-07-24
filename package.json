@@ -1,0 +1,15 @@
+{
+  "name": "archflow",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "dev:web": "pnpm --filter @archflow/web dev",
+    "dev:api": "pnpm --filter @archflow/api dev",
+    "build": "pnpm --filter @archflow/web build && pnpm --filter @archflow/api build",
+    "lint": "pnpm --recursive lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,22 @@
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+
+export class CreateWorkspaceDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+}
+
+export class UpdateWorkspaceDto {
+  @IsString()
+  @IsNotEmpty()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+}
