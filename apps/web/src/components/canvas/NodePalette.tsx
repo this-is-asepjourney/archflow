@@ -226,6 +226,7 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
                           data: {
                             label: item.label,
                             category: item.category,
+                            nodeType: item.nodeType || item.label.toLowerCase().replace(/\s+/g, '-'),
                             shape: item.defaultData?.shape,
                             ...(item.defaultData || {}),
                           },

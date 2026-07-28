@@ -118,60 +118,311 @@ export function PropertiesPanel({ node, onClose, onUpdate }: PropertiesPanelProp
 // ─── Topology Panel ────────────────────────────────────────────────────────────
 function TopologyPanel({ data, onChange }: { data: Record<string, any>; onChange: (k: string, v: any) => void }) {
   const category = data.category || 'default';
+  const nodeType = data.nodeType || '';
+
+  const renderSelect = (label: string, field: string, options: string[]) => (
+    <div style={{ marginBottom: '0.875rem' }}>
+      <label style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--foreground-muted))', marginBottom: '0.3rem' }}>{label}</label>
+      <select className="input w-full" value={data[field] || ''} onChange={(e) => onChange(field, e.target.value)} style={{ fontSize: '0.8125rem' }}>
+        <option value="">-- Select --</option>
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    </div>
+  );
+
+  const renderCheckbox = (label: string, field: string) => (
+    <div style={{ marginBottom: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <input type="checkbox" checked={!!data[field]} onChange={(e) => onChange(field, e.target.checked)} style={{ accentColor: 'hsl(var(--primary))', width: 14, height: 14 }} />
+      <label style={{ fontSize: '0.75rem', color: 'hsl(var(--foreground-muted))', cursor: 'pointer' }}>{label}</label>
+    </div>
+  );
 
   return (
     <>
+      <SectionTitle>General Properties</SectionTitle>
       <Field label="Label" value={data.label || ''} onChange={(v) => onChange('label', v)} placeholder="Node label" />
       <Field label="Description" value={data.description || ''} onChange={(v) => onChange('description', v)} placeholder="Optional description" multiline />
+      
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ flex: 1 }}>{renderSelect('Status', 'status', ['active', 'inactive', 'maintenance', 'error', 'planned'])}</div>
+        <div style={{ flex: 1 }}>{renderSelect('Environment', 'environment', ['production', 'staging', 'development', 'local'])}</div>
+      </div>
+      
+      <Field label="Spesifikasi (Notes)" value={data.spesifikasi || ''} onChange={(v) => onChange('spesifikasi', v)} placeholder="Free text notes" multiline />
+      <Field label="Tags (comma separated)" value={data.tags || ''} onChange={(v) => onChange('tags', v)} placeholder="web, prod, critical" />
+
       <div className="divider" />
       
-      {/* Dynamic Fields by Category */}
-      {category === 'compute' && (
-        <>
-          <SectionTitle>Compute Specs</SectionTitle>
-          <Field label="IP Address" value={data.ip || ''} onChange={(v) => onChange('ip', v)} placeholder="192.168.1.100" mono />
-          <Field label="OS" value={data.os || ''} onChange={(v) => onChange('os', v)} placeholder="Ubuntu 22.04" />
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <div style={{ flex: 1 }}><Field label="CPU (Cores)" value={data.cpu || ''} onChange={(v) => onChange('cpu', v)} placeholder="4" mono /></div>
-            <div style={{ flex: 1 }}><Field label="RAM (GB)" value={data.ram || ''} onChange={(v) => onChange('ram', v)} placeholder="16" mono /></div>
-          </div>
-        </>
-      )}
-
+      {/* Category: Network */}
       {category === 'network' && (
         <>
-          <SectionTitle>Network Configuration</SectionTitle>
-          <Field label="IP Address" value={data.ip || ''} onChange={(v) => onChange('ip', v)} placeholder="192.168.1.1" mono />
-          <Field label="Subnet Mask" value={data.subnet || ''} onChange={(v) => onChange('subnet', v)} placeholder="255.255.255.0" mono />
-          <Field label="Gateway" value={data.gateway || ''} onChange={(v) => onChange('gateway', v)} placeholder="192.168.1.254" mono />
+          <SectionTitle>Network Specs ({nodeType})</SectionTitle>
+          {nodeType === 'router' && (
+            <>
+              <Field label="Hostname" value={data.hostname || ''} onChange={(v) => onChange('hostname', v)} />
+              <Field label="WAN IP" value={data.wan_ip || ''} onChange={(v) => onChange('wan_ip', v)} mono />
+              <Field label="LAN IP" value={data.ip || ''} onChange={(v) => onChange('ip', v)} mono />
+              <Field label="Gateway" value={data.gateway || ''} onChange={(v) => onChange('gateway', v)} mono />
+              <Field label="DNS Servers" value={data.dns_servers || ''} onChange={(v) => onChange('dns_servers', v)} placeholder="8.8.8.8, 1.1.1.1" mono />
+              {renderSelect('Routing Protocol', 'routing_protocol', ['static', 'OSPF', 'BGP', 'RIP'])}
+              {renderSelect('WAN Type', 'wan_type', ['PPPoE', 'DHCP', 'Static IP'])}
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {renderCheckbox('NAT Enabled', 'nat_enabled')}
+                {renderCheckbox('VLAN Support', 'vlan_support')}
+              </div>
+              <Field label="Bandwidth Limit" value={data.bandwidth_limit || ''} onChange={(v) => onChange('bandwidth_limit', v)} placeholder="50 Mbps up/down" />
+              <Field label="Firmware Version" value={data.firmware_version || ''} onChange={(v) => onChange('firmware_version', v)} />
+            </>
+          )}
+          {nodeType === 'switch' && (
+            <>
+              <Field label="Hostname" value={data.hostname || ''} onChange={(v) => onChange('hostname', v)} />
+              {renderSelect('Switch Type', 'switch_type', ['managed', 'unmanaged', 'smart'])}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ flex: 1 }}><Field label="Port Count" value={data.port_count || ''} onChange={(v) => onChange('port_count', v)} /></div>
+                <div style={{ flex: 1 }}><Field label="Port Speed" value={data.port_speed || ''} onChange={(v) => onChange('port_speed', v)} placeholder="10/100/1000 Mbps" /></div>
+              </div>
+              <Field label="Management IP" value={data.ip || ''} onChange={(v) => onChange('ip', v)} mono />
+              <Field label="VLAN Config" value={data.vlan_config || ''} onChange={(v) => onChange('vlan_config', v)} placeholder="10, 20, 30" />
+              <Field label="Uplink Port" value={data.uplink_port || ''} onChange={(v) => onChange('uplink_port', v)} />
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {renderCheckbox('PoE Support', 'poe_support')}
+                {renderCheckbox('STP Enabled', 'stp_enabled')}
+              </div>
+            </>
+          )}
+          {nodeType === 'firewall' && (
+            <>
+              <Field label="Hostname" value={data.hostname || ''} onChange={(v) => onChange('hostname', v)} />
+              {renderSelect('Firewall Type', 'firewall_type', ['Hardware', 'Software', 'Cloud-based'])}
+              {renderSelect('Policy Mode', 'policy_mode', ['Allow by default', 'Deny by default'])}
+              <Field label="Rules Count" value={data.rules_count || ''} onChange={(v) => onChange('rules_count', v)} />
+              <Field label="Zones" value={data.zones || ''} onChange={(v) => onChange('zones', v)} placeholder="WAN, LAN, DMZ" />
+              <Field label="Throughput" value={data.throughput || ''} onChange={(v) => onChange('throughput', v)} />
+              {renderCheckbox('IPS/IDS Enabled', 'ips_ids_enabled')}
+            </>
+          )}
+          {nodeType === 'load-balancer' && (
+            <>
+              {renderSelect('Algorithm', 'algorithm', ['Round Robin', 'Least Connections', 'IP Hash'])}
+              <Field label="Backend Targets" value={data.backend_targets || ''} onChange={(v) => onChange('backend_targets', v)} placeholder="server-1, server-2" />
+              <Field label="Health Check Path" value={data.health_check_path || ''} onChange={(v) => onChange('health_check_path', v)} placeholder="/health" />
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {renderCheckbox('SSL Termination', 'ssl_termination')}
+                {renderCheckbox('Sticky Session', 'sticky_session')}
+              </div>
+            </>
+          )}
+          {nodeType === 'vpn' && (
+            <>
+              {renderSelect('VPN Type', 'vpn_type', ['Site-to-Site', 'Point-to-Site', 'Remote Access'])}
+              {renderSelect('Protocol', 'protocol', ['WireGuard', 'OpenVPN', 'IPSec', 'L2TP'])}
+              <Field label="Encryption" value={data.encryption || ''} onChange={(v) => onChange('encryption', v)} placeholder="AES-256" />
+              <Field label="Tunnel IP Range" value={data.tunnel_ip_range || ''} onChange={(v) => onChange('tunnel_ip_range', v)} mono />
+            </>
+          )}
+          {nodeType === 'nginx' && (
+            <>
+              {renderSelect('Role', 'role', ['Reverse Proxy', 'Load Balancer', 'Static Server'])}
+              <Field label="Upstream Targets" value={data.upstream_targets || ''} onChange={(v) => onChange('upstream_targets', v)} />
+              <Field label="Config Path" value={data.config_path || ''} onChange={(v) => onChange('config_path', v)} />
+              {renderCheckbox('SSL Enabled', 'ssl_enabled')}
+            </>
+          )}
+          
+          {/* Default fallback for other network components */}
+          {!['router', 'switch', 'firewall', 'load-balancer', 'vpn', 'nginx'].includes(nodeType) && (
+            <>
+              <Field label="IP Address" value={data.ip || ''} onChange={(v) => onChange('ip', v)} mono />
+              <Field label="Subnet Mask" value={data.subnet || ''} onChange={(v) => onChange('subnet', v)} mono />
+              <Field label="Gateway" value={data.gateway || ''} onChange={(v) => onChange('gateway', v)} mono />
+            </>
+          )}
         </>
       )}
 
-      {category === 'data' && (
+      {/* Category: Compute */}
+      {category === 'compute' && (
         <>
-          <SectionTitle>Database Configuration</SectionTitle>
-          <Field label="Engine" value={data.engine || ''} onChange={(v) => onChange('engine', v)} placeholder="PostgreSQL 15" />
-          <Field label="Host / IP" value={data.ip || ''} onChange={(v) => onChange('ip', v)} placeholder="10.0.0.50" mono />
-          <Field label="Port" value={data.port || ''} onChange={(v) => onChange('port', v)} placeholder="5432" mono />
-          <Field label="Database Name" value={data.dbname || ''} onChange={(v) => onChange('dbname', v)} placeholder="main_db" />
+          <SectionTitle>Compute Specs ({nodeType})</SectionTitle>
+          <Field label="IP Address" value={data.ip || ''} onChange={(v) => onChange('ip', v)} placeholder="192.168.1.100" mono />
+          {nodeType === 'server' && (
+            <>
+              <Field label="Hostname" value={data.hostname || ''} onChange={(v) => onChange('hostname', v)} />
+              {renderSelect('Server Role', 'server_role', ['Database', 'Web', 'File', 'Application', 'DNS', 'Mail'])}
+              <Field label="OS" value={data.os || ''} onChange={(v) => onChange('os', v)} placeholder="Ubuntu 22.04" />
+              {renderSelect('Virtualization', 'virtualization', ['Bare metal', 'Proxmox', 'VMware'])}
+            </>
+          )}
+          {nodeType === 'vm' && (
+            <>
+              {renderSelect('Hypervisor', 'hypervisor', ['Proxmox', 'VMware ESXi', 'KVM', 'Hyper-V'])}
+              <Field label="Host Node" value={data.host_node || ''} onChange={(v) => onChange('host_node', v)} />
+              {renderCheckbox('Snapshot Enabled', 'snapshot_enabled')}
+            </>
+          )}
+          {['server', 'vm'].includes(nodeType) && (
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ flex: 1 }}><Field label="CPU / vCPU" value={data.cpu || ''} onChange={(v) => onChange('cpu', v)} placeholder="4" mono /></div>
+              <div style={{ flex: 1 }}><Field label="RAM" value={data.ram || ''} onChange={(v) => onChange('ram', v)} placeholder="16 GB" mono /></div>
+              <div style={{ flex: 1 }}><Field label="Storage" value={data.storage || ''} onChange={(v) => onChange('storage', v)} placeholder="500 GB" mono /></div>
+            </div>
+          )}
+          {nodeType === 'docker' && (
+            <>
+              <Field label="Container Name" value={data.container_name || ''} onChange={(v) => onChange('container_name', v)} />
+              <Field label="Image" value={data.image || ''} onChange={(v) => onChange('image', v)} placeholder="nginx:1.25-alpine" />
+              <Field label="Exposed Ports" value={data.port || ''} onChange={(v) => onChange('port', v)} placeholder="80:8080" mono />
+              <Field label="Volumes" value={data.volumes || ''} onChange={(v) => onChange('volumes', v)} />
+              <Field label="Env Vars" value={data.env_vars || ''} onChange={(v) => onChange('env_vars', v)} multiline />
+              {renderSelect('Network Mode', 'network_mode', ['bridge', 'host', 'none', 'custom'])}
+              {renderSelect('Restart Policy', 'restart_policy', ['always', 'on-failure', 'unless-stopped'])}
+            </>
+          )}
+          {nodeType === 'kubernetes' && (
+            <>
+              {renderSelect('Resource Type', 'resource_type', ['Cluster', 'Node', 'Pod', 'Deployment', 'Service', 'Ingress'])}
+              <Field label="Namespace" value={data.namespace || ''} onChange={(v) => onChange('namespace', v)} />
+              <Field label="Image" value={data.image || ''} onChange={(v) => onChange('image', v)} />
+              <Field label="Replicas" value={data.replicas || ''} onChange={(v) => onChange('replicas', v)} />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ flex: 1 }}><Field label="CPU Req/Lim" value={data.cpu_limit || ''} onChange={(v) => onChange('cpu_limit', v)} /></div>
+                <div style={{ flex: 1 }}><Field label="Mem Req/Lim" value={data.memory_limit || ''} onChange={(v) => onChange('memory_limit', v)} /></div>
+              </div>
+              {renderSelect('Service Type', 'service_type', ['ClusterIP', 'NodePort', 'LoadBalancer'])}
+            </>
+          )}
         </>
       )}
 
+      {/* Category: Cloud */}
       {category === 'cloud' && (
         <>
-          <SectionTitle>Cloud Configuration</SectionTitle>
-          <Field label="Provider" value={data.provider || ''} onChange={(v) => onChange('provider', v)} placeholder="AWS / GCP" />
-          <Field label="Region" value={data.region || ''} onChange={(v) => onChange('region', v)} placeholder="us-east-1" mono />
+          <SectionTitle>Cloud Configuration ({nodeType})</SectionTitle>
+          {renderSelect('Provider', 'provider', ['AWS', 'Azure', 'GCP'])}
+          <Field label="Service Name" value={data.service_name || ''} onChange={(v) => onChange('service_name', v)} placeholder="EC2, S3, RDS..." />
+          <Field label="Region" value={data.region || ''} onChange={(v) => onChange('region', v)} placeholder="ap-southeast-1" mono />
+          <Field label="Resource ID / ARN" value={data.resource_id || ''} onChange={(v) => onChange('resource_id', v)} />
           <Field label="Instance Type" value={data.instanceType || ''} onChange={(v) => onChange('instanceType', v)} placeholder="t3.medium" mono />
+          <Field label="Pricing Tier" value={data.pricing_tier || ''} onChange={(v) => onChange('pricing_tier', v)} />
+          <Field label="Endpoint URL" value={data.endpoint_url || ''} onChange={(v) => onChange('endpoint_url', v)} mono />
+          {renderCheckbox('Auto Scaling', 'auto_scaling')}
         </>
       )}
 
-      {['app', 'observability', 'endpoint', 'iot', 'default'].includes(category) && (
+      {/* Category: IoT / Embedded */}
+      {category === 'iot' && (
+        <>
+          <SectionTitle>IoT Configuration ({nodeType})</SectionTitle>
+          <Field label="Board Model" value={data.board_model || ''} onChange={(v) => onChange('board_model', v)} placeholder="ESP32-WROOM-32" />
+          <Field label="Firmware Version" value={data.firmware_version || ''} onChange={(v) => onChange('firmware_version', v)} />
+          {renderSelect('Connection Method', 'connection_method', ['WiFi', 'Bluetooth', 'LoRa', 'Serial/UART', 'Ethernet'])}
+          {renderSelect('Protocol', 'protocol', ['MQTT', 'HTTP', 'Modbus', 'CoAP'])}
+          <Field label="Sensors / Actuators" value={data.sensors_actuators || ''} onChange={(v) => onChange('sensors_actuators', v)} placeholder="DHT22, Relay 4ch" />
+          {renderSelect('Power Source', 'power_source', ['USB', 'Battery', 'PoE', 'Solar'])}
+          <Field label="Broker Target" value={data.broker_target || ''} onChange={(v) => onChange('broker_target', v)} />
+          <Field label="IP Address" value={data.ip || ''} onChange={(v) => onChange('ip', v)} mono />
+        </>
+      )}
+
+      {/* Category: Data */}
+      {category === 'data' && (
+        <>
+          <SectionTitle>Data Configuration ({nodeType})</SectionTitle>
+          {['database', 'postgresql', 'mysql', 'mongodb'].includes(nodeType) && (
+            <>
+              {renderSelect('Engine', 'engine', ['PostgreSQL', 'MySQL', 'MongoDB', 'SQLite'])}
+              <Field label="Version" value={data.version || ''} onChange={(v) => onChange('version', v)} />
+              <Field label="DB Name" value={data.db_name || ''} onChange={(v) => onChange('db_name', v)} />
+              <Field label="Host / IP" value={data.ip || ''} onChange={(v) => onChange('ip', v)} mono />
+              <Field label="Port" value={data.port || ''} onChange={(v) => onChange('port', v)} mono />
+              <Field label="Connection Pool Size" value={data.connection_pool_size || ''} onChange={(v) => onChange('connection_pool_size', v)} />
+              {renderSelect('Replication', 'replication', ['None', 'Primary-Replica', 'Multi-Master'])}
+            </>
+          )}
+          {nodeType === 'redis' && (
+            <>
+              {renderSelect('Usage', 'usage', ['Cache', 'Session Store', 'Pub/Sub', 'Queue'])}
+              <Field label="Eviction Policy" value={data.eviction_policy || ''} onChange={(v) => onChange('eviction_policy', v)} placeholder="allkeys-lru" />
+              {renderSelect('Persistence', 'persistence', ['RDB', 'AOF', 'None'])}
+              {renderCheckbox('Cluster Mode', 'cluster_mode')}
+            </>
+          )}
+          {['storage', 'minio'].includes(nodeType) && (
+            <>
+              {renderSelect('Storage Type', 'storage_type', ['Object Storage', 'Block Storage', 'File Storage'])}
+              <Field label="Bucket Name" value={data.bucket_name || ''} onChange={(v) => onChange('bucket_name', v)} />
+              <Field label="Capacity" value={data.capacity || ''} onChange={(v) => onChange('capacity', v)} />
+              {renderSelect('Access Policy', 'access_policy', ['Private', 'Public Read', 'Custom'])}
+            </>
+          )}
+          {['kafka', 'rabbitmq'].includes(nodeType) && (
+            <>
+              {renderSelect('Broker Type', 'broker_type', ['Kafka', 'RabbitMQ'])}
+              <Field label="Topics or Queues" value={data.topics_or_queues || ''} onChange={(v) => onChange('topics_or_queues', v)} />
+              <Field label="Partition Count (Kafka)" value={data.partition_count || ''} onChange={(v) => onChange('partition_count', v)} />
+              {renderSelect('Exchange Type (RabbitMQ)', 'exchange_type', ['direct', 'topic', 'fanout'])}
+              <Field label="Retention Policy" value={data.retention_policy || ''} onChange={(v) => onChange('retention_policy', v)} />
+            </>
+          )}
+          {nodeType === 'mqtt' && (
+            <>
+              <Field label="Broker Software" value={data.broker_software || ''} onChange={(v) => onChange('broker_software', v)} placeholder="Mosquitto, EMQX" />
+              <Field label="Topics" value={data.topics || ''} onChange={(v) => onChange('topics', v)} />
+              {renderSelect('QoS Level', 'qos_level', ['0', '1', '2'])}
+              {renderCheckbox('Auth Enabled', 'auth_enabled')}
+            </>
+          )}
+        </>
+      )}
+
+      {/* Category: App */}
+      {category === 'app' && (
+        <>
+          <SectionTitle>App Configuration ({nodeType})</SectionTitle>
+          {renderSelect('App Type', 'app_type', ['API', 'Frontend', 'Backend', 'Microservice'])}
+          <Field label="Tech Stack" value={data.tech_stack || ''} onChange={(v) => onChange('tech_stack', v)} placeholder="Next.js, NestJS" />
+          <Field label="Repo URL" value={data.repo_url || ''} onChange={(v) => onChange('repo_url', v)} />
+          <Field label="Base URL / Endpoint" value={data.endpoint || ''} onChange={(v) => onChange('endpoint', v)} mono />
+          <Field label="Port" value={data.port || ''} onChange={(v) => onChange('port', v)} mono />
+          <Field label="Deployment Target" value={data.deployment_target || ''} onChange={(v) => onChange('deployment_target', v)} />
+          <Field label="Depends On" value={data.depends_on || ''} onChange={(v) => onChange('depends_on', v)} placeholder="DB, Redis" />
+          <Field label="Version" value={data.version || ''} onChange={(v) => onChange('version', v)} />
+        </>
+      )}
+
+      {/* Category: Observability */}
+      {category === 'observability' && (
+        <>
+          <SectionTitle>Observability ({nodeType})</SectionTitle>
+          {renderSelect('Tool', 'tool', ['Prometheus', 'Grafana', 'Loki'])}
+          {renderSelect('Role', 'role', ['Metrics Collector', 'Dashboard', 'Log Aggregator'])}
+          <Field label="Scrape Targets" value={data.scrape_targets || ''} onChange={(v) => onChange('scrape_targets', v)} />
+          <Field label="Retention Period" value={data.retention_period || ''} onChange={(v) => onChange('retention_period', v)} />
+          <Field label="Dashboard URL" value={data.dashboard_url || ''} onChange={(v) => onChange('dashboard_url', v)} mono />
+          {renderCheckbox('Alerting Enabled', 'alerting_enabled')}
+        </>
+      )}
+
+      {/* Category: Endpoint */}
+      {category === 'endpoint' && (
+        <>
+          <SectionTitle>Endpoint Configuration ({nodeType})</SectionTitle>
+          {renderSelect('Device Type', 'device_type', ['Printer', 'Laptop', 'PC', 'Mobile'])}
+          <Field label="OS" value={data.os || ''} onChange={(v) => onChange('os', v)} />
+          <Field label="Owner / User" value={data.owner_user || ''} onChange={(v) => onChange('owner_user', v)} />
+          {renderSelect('Connection Method', 'connection_method', ['LAN', 'WiFi', 'Bluetooth'])}
+          <Field label="Asset Tag" value={data.asset_tag || ''} onChange={(v) => onChange('asset_tag', v)} />
+          <Field label="IP Address" value={data.ip || ''} onChange={(v) => onChange('ip', v)} mono />
+        </>
+      )}
+
+      {/* Default Category Fallback */}
+      {['default'].includes(category) && (
         <>
           <SectionTitle>Configuration</SectionTitle>
           <Field label="IP / Endpoint" value={data.ip || ''} onChange={(v) => onChange('ip', v)} placeholder="192.168.1.1" mono />
           <Field label="Port" value={data.port || ''} onChange={(v) => onChange('port', v)} placeholder="8080" mono />
-          <Field label="Environment" value={data.environment || ''} onChange={(v) => onChange('environment', v)} placeholder="production / staging" />
         </>
       )}
     </>
