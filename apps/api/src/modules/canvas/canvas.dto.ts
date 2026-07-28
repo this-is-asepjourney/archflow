@@ -1,4 +1,10 @@
-import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsIn,
+} from 'class-validator';
 import type { CanvasType } from './canvas.entity';
 
 export class CreateCanvasDto {
@@ -6,7 +12,15 @@ export class CreateCanvasDto {
   @IsNotEmpty()
   name: string;
 
-  @IsEnum(['TOPOLOGY', 'FLOW', 'UML', 'ERD', 'INFRASTRUCTURE'])
+  @IsIn([
+    'TOPOLOGY',
+    'FLOW',
+    'UML',
+    'ERD',
+    'INFRASTRUCTURE',
+    'CICD',
+    'SEQUENCE',
+  ])
   type: CanvasType;
 }
 

@@ -34,8 +34,10 @@ export default function CanvasPage() {
       const { data } = await api.get(`/projects/${projectId}/canvas/${canvasId}`);
       setCanvas({
         id: data.id,
+        projectId: projectId,
         name: data.name,
         type: data.type,
+        role: data.role || 'EDITOR',
         nodes: data.nodes || [],
         edges: data.edges || [],
         viewport: data.viewport || { x: 0, y: 0, zoom: 1 },

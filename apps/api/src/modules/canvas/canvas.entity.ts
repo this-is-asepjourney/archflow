@@ -1,4 +1,5 @@
-export type CanvasType = 'TOPOLOGY' | 'FLOW' | 'UML' | 'ERD' | 'INFRASTRUCTURE';
+export type CanvasType =
+  'TOPOLOGY' | 'FLOW' | 'UML' | 'ERD' | 'INFRASTRUCTURE' | 'CICD' | 'SEQUENCE';
 
 export interface NodePosition {
   x: number;

@@ -3,62 +3,65 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import { Workspace } from './workspace.entity';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from './workspace.dto';
 
 @Injectable()
 export class WorkspacesService {
-  private workspaces: Workspace[] = [];
+  constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateWorkspaceDto, ownerId: string): Workspace {
+  async create(dto: CreateWorkspaceDto, ownerId: string) {
     const slug = dto.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-    const workspace: Workspace = {
-      id: uuidv4(),
-      name: dto.name,
-      slug,
-      description: dto.description,
-      ownerId,
-      members: [{ userId: ownerId, role: 'OWNER' }],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.workspaces.push(workspace);
+    const workspace = await this.prisma.workspace.create({
+      data: {
+        name: dto.name,
+        description: dto.description,
+        slug,
+        members: {
+          create: { userId: ownerId, role: 'OWNER' },
+        },
+      },
+      include: { members: true },
+    });
     return workspace;
   }
 
-  findAllForUser(userId: string): Workspace[] {
-    return this.workspaces.filter((w) =>
-      w.members.some((m) => m.userId === userId),
-    );
+  async findAllForUser(userId: string) {
+    const memberships = await this.prisma.workspaceMember.findMany({
+      where: { userId },
+      include: { workspace: { include: { members: true } } },
+    });
+    return memberships.map((m) => ({ ...m.workspace, role: m.role }));
   }
 
-  findOne(id: string, userId: string): Workspace {
-    const workspace = this.workspaces.find((w) => w.id === id);
+  async findOne(id: string, userId: string) {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id },
+      include: { members: true },
+    });
     if (!workspace) throw new NotFoundException('Workspace not found');
-    const isMember = workspace.members.some((m) => m.userId === userId);
-    if (!isMember) throw new ForbiddenException('Access denied');
-    return workspace;
+    const member = workspace.members.find((m) => m.userId === userId);
+    if (!member) throw new ForbiddenException('Access denied');
+    return { ...workspace, role: member.role };
   }
 
-  update(id: string, dto: UpdateWorkspaceDto, userId: string): Workspace {
-    const workspace = this.findOne(id, userId);
-    const member = workspace.members.find((m) => m.userId === userId);
-    if (member?.role !== 'OWNER' && member?.role !== 'EDITOR') {
+  async update(id: string, dto: UpdateWorkspaceDto, userId: string) {
+    const workspace = await this.findOne(id, userId);
+    if (workspace.role !== 'OWNER' && workspace.role !== 'EDITOR') {
       throw new ForbiddenException('Insufficient permissions');
     }
-    if (dto.name) workspace.name = dto.name;
-    if (dto.description !== undefined) workspace.description = dto.description;
-    workspace.updatedAt = new Date();
-    return workspace;
+    return this.prisma.workspace.update({
+      where: { id },
+      data: { name: dto.name, description: dto.description },
+      include: { members: true },
+    });
   }
 
-  remove(id: string, userId: string): void {
-    const workspace = this.findOne(id, userId);
-    const member = workspace.members.find((m) => m.userId === userId);
-    if (member?.role !== 'OWNER') {
+  async remove(id: string, userId: string) {
+    const workspace = await this.findOne(id, userId);
+    if (workspace.role !== 'OWNER') {
       throw new ForbiddenException('Only owner can delete workspace');
     }
-    this.workspaces = this.workspaces.filter((w) => w.id !== id);
+    await this.prisma.workspace.delete({ where: { id } });
   }
 }

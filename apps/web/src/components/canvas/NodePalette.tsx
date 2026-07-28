@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
-import { TOPOLOGY_PALETTE } from '@/lib/palette';
+import { getPaletteForType } from '@/lib/palette';
 
 interface NodePaletteProps {
+  canvasType?: string;
   onDragStart: (event: React.DragEvent, nodeData: any) => void;
 }
 
 const categoryColors: Record<string, string> = {
+  // Topology
   network: '252 87% 67%',
   compute: '142 71% 45%',
   cloud: '192 100% 60%',
@@ -17,22 +19,39 @@ const categoryColors: Record<string, string> = {
   app: '210 80% 60%',
   observability: '0 84% 60%',
   endpoint: '215 20% 60%',
+  // ERD
+  erd: '38 92% 50%',
+  // UML
+  'uml-class': '252 87% 67%',
+  'uml-usecase': '192 100% 60%',
+  // Flow
+  'flow-basic': '210 80% 60%',
+  'flow-swim': '252 87% 67%',
+  'flow-cicd': '142 71% 45%',
 };
 
 const categoryIcons: Record<string, string> = {
-  network: '🌐',
-  compute: '🖥️',
-  cloud: '☁️',
-  data: '🗄️',
-  iot: '📡',
-  app: '🔧',
-  observability: '📊',
-  endpoint: '💻',
+  network: '🌐', compute: '🖥️', cloud: '☁️', data: '🗄️',
+  iot: '📡', app: '🔧', observability: '📊', endpoint: '💻',
+  erd: '🗃️',
+  'uml-class': '🏗️', 'uml-usecase': '👤',
+  'flow-basic': '◆', 'flow-swim': '🏊', 'flow-cicd': '🔄',
 };
 
-export function NodePalette({ onDragStart }: NodePaletteProps) {
+const diagramTypeLabel: Record<string, string> = {
+  TOPOLOGY: 'Infrastructure',
+  ERD: 'ERD — Database',
+  UML: 'UML — Classes',
+  FLOW: 'Flow Diagram',
+  CICD: 'CI/CD Pipeline',
+  SEQUENCE: 'Sequence',
+};
+
+export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
   const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const PALETTE = getPaletteForType(canvasType);
 
   const toggleCategory = (cat: string) => {
     setCollapsed((prev) => {
@@ -44,131 +63,212 @@ export function NodePalette({ onDragStart }: NodePaletteProps) {
   };
 
   const filtered = search
-    ? TOPOLOGY_PALETTE.map((group) => ({
+    ? PALETTE.map((group) => ({
         ...group,
         items: group.items.filter((item) =>
           item.label.toLowerCase().includes(search.toLowerCase()),
         ),
       })).filter((g) => g.items.length > 0)
-    : TOPOLOGY_PALETTE;
+    : PALETTE;
 
   return (
     <div
       style={{
-        width: 220,
+        width: 240,
         height: '100%',
-        background: 'hsl(var(--surface))',
-        borderRight: '1px solid hsl(var(--border-subtle))',
+        background: 'hsl(var(--surface) / 0.5)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderRight: '1px solid hsl(var(--border) / 0.5)',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
+        boxShadow: '1px 0 12px hsl(0 0% 0% / 0.1)',
+        zIndex: 40,
       }}
     >
       {/* Header */}
       <div
         style={{
-          padding: '0.75rem',
-          borderBottom: '1px solid hsl(var(--border-subtle))',
+          padding: '1rem',
+          borderBottom: '1px solid hsl(var(--border) / 0.5)',
           flexShrink: 0,
+          background: 'hsl(var(--surface-2) / 0.3)',
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.5rem', color: 'hsl(var(--foreground))' }}>
-          Components
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'hsl(var(--foreground))', letterSpacing: '-0.01em' }}>
+            Components
+          </div>
+          {canvasType && (
+            <div style={{
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              color: 'hsl(var(--primary))',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              padding: '0.2rem 0.4rem',
+              background: 'hsl(var(--primary) / 0.1)',
+              borderRadius: '0.25rem',
+              border: '1px solid hsl(var(--primary) / 0.2)',
+            }}>
+              {diagramTypeLabel[canvasType] || canvasType}
+            </div>
+          )}
         </div>
         <div style={{ position: 'relative' }}>
           <Search
-            size={13}
+            size={14}
             style={{
               position: 'absolute',
-              left: 8,
+              left: 10,
               top: '50%',
               transform: 'translateY(-50%)',
-              color: 'hsl(var(--foreground-subtle))',
+              color: 'hsl(var(--foreground-muted))',
             }}
           />
           <input
             className="input"
-            placeholder="Search..."
+            placeholder="Search nodes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ fontSize: '0.8125rem', padding: '0.375rem 0.5rem 0.375rem 1.75rem' }}
+            style={{ 
+              fontSize: '0.8125rem', 
+              padding: '0.4rem 0.75rem 0.4rem 2rem',
+              background: 'hsl(var(--surface-3) / 0.5)',
+              border: '1px solid hsl(var(--border))',
+              boxShadow: 'inset 0 1px 2px hsl(0 0% 0% / 0.2)',
+              borderRadius: '0.5rem',
+            }}
           />
         </div>
       </div>
 
       {/* Categories */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
+      <div 
+        style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          padding: '0.75rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+        }}
+      >
         {filtered.map((group) => {
           const isCollapsed = collapsed.has(group.category);
           const color = categoryColors[group.category] || '252 87% 67%';
           return (
-            <div key={group.category} style={{ marginBottom: '0.25rem' }}>
+            <div key={group.category} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               {/* Category header */}
               <button
                 onClick={() => toggleCategory(group.category)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.375rem',
+                  gap: '0.5rem',
                   width: '100%',
-                  padding: '0.375rem 0.5rem',
-                  borderRadius: 6,
-                  background: 'none',
+                  padding: '0.5rem',
+                  borderRadius: '0.375rem',
+                  background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
                   color: 'hsl(var(--foreground-muted))',
+                  transition: 'color 0.2s ease, background 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'hsl(var(--foreground))';
+                  e.currentTarget.style.background = 'hsl(var(--surface-2) / 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'hsl(var(--foreground-muted))';
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <span style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  width: 20, 
+                  height: 20, 
+                  fontSize: '0.9rem',
+                  background: `hsl(${color} / 0.15)`,
+                  borderRadius: '0.25rem',
+                  border: `1px solid hsl(${color} / 0.3)`
+                }}>
+                  {categoryIcons[group.category] || '📦'}
+                </span>
+                <span style={{ 
+                  flex: 1, 
+                  textAlign: 'left', 
                   fontSize: '0.75rem',
                   fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
-                }}
-              >
-                <span>{categoryIcons[group.category]}</span>
-                <span style={{ flex: 1, textAlign: 'left' }}>{group.label}</span>
-                {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                }}>
+                  {group.label}
+                </span>
+                <span style={{ color: 'inherit', opacity: 0.6 }}>
+                  {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                </span>
               </button>
 
               {/* Items */}
               {!isCollapsed && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '0.25rem' }}>
-                  {group.items.map((item) => (
+                  {group.items.map((item: any) => (
                     <div
                       key={item.label}
                       draggable
                       onDragStart={(e) =>
-                        onDragStart(e, { type: item.type, data: { label: item.label, category: item.category } })
+                        onDragStart(e, {
+                          type: item.type,
+                          data: {
+                            label: item.label,
+                            category: item.category,
+                            shape: item.defaultData?.shape,
+                            ...(item.defaultData || {}),
+                          },
+                        })
                       }
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.375rem 0.5rem',
-                        borderRadius: 6,
+                        gap: '0.625rem',
+                        padding: '0.4rem 0.625rem',
+                        borderRadius: '0.375rem',
                         cursor: 'grab',
                         border: '1px solid transparent',
                         fontSize: '0.8125rem',
+                        fontWeight: 500,
                         color: 'hsl(var(--foreground-muted))',
                         transition: 'all 0.15s ease',
                         userSelect: 'none',
+                        position: 'relative',
+                        overflow: 'hidden',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = `hsl(${color} / 0.08)`;
                         e.currentTarget.style.borderColor = `hsl(${color} / 0.2)`;
                         e.currentTarget.style.color = 'hsl(var(--foreground))';
+                        e.currentTarget.style.transform = 'translateX(2px)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = 'transparent';
                         e.currentTarget.style.borderColor = 'transparent';
                         e.currentTarget.style.color = 'hsl(var(--foreground-muted))';
+                        e.currentTarget.style.transform = 'none';
                       }}
                     >
                       <div
                         style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          background: `hsl(${color})`,
+                          width: 8,
+                          height: 8,
+                          borderRadius: item.defaultData?.shape === 'decision' ? '1px' : '50%',
+                          background: `linear-gradient(135deg, hsl(${color}), hsl(${color} / 0.6))`,
+                          boxShadow: `0 0 6px hsl(${color} / 0.4)`,
                           flexShrink: 0,
+                          transform: item.defaultData?.shape === 'decision' ? 'rotate(45deg)' : undefined,
                         }}
                       />
                       {item.label}

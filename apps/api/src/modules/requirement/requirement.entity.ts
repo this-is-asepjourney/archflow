@@ -1,5 +1,6 @@
 export type RequirementType = 'BUSINESS' | 'FUNCTIONAL' | 'NON_FUNCTIONAL';
-export type RequirementStatus = 'DRAFT' | 'IN_PROGRESS' | 'REVIEW' | 'APPROVED' | 'DONE';
+export type RequirementStatus =
+  'DRAFT' | 'IN_PROGRESS' | 'REVIEW' | 'APPROVED' | 'DONE';
 export type RequirementPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface Requirement {

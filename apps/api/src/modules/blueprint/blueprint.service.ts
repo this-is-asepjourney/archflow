@@ -1,59 +1,40 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import { Blueprint } from './blueprint.entity';
-import { UpdateBlueprintDto } from './blueprint.dto';
+import { Injectable, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
+import { UpdateBlueprintDto } from './blueprint.dto';
 
 @Injectable()
 export class BlueprintService {
-  // In-memory store
-  private blueprints: Blueprint[] = [];
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectsService: ProjectsService,
+  ) {}
 
-  constructor(private readonly projectsService: ProjectsService) {}
-
-  async getBlueprintByProjectId(projectId: string, userId: string): Promise<Blueprint> {
-    // Validate project exists
+  async getBlueprintByProjectId(projectId: string, userId: string) {
     await this.projectsService.findOne(projectId, userId);
 
-    let blueprint = this.blueprints.find((b: Blueprint) => b.projectId === projectId);
-    
-    // Auto-create if it doesn't exist
-    if (!blueprint) {
-      blueprint = {
-        id: uuidv4(),
-        projectId,
-        businessRequirements: '',
-        functionalRequirements: '',
-        nonFunctionalRequirements: '',
-        architectureDecisions: '',
-        technicalNotes: '',
-        risks: '',
-        milestones: '',
-        deploymentPlan: '',
-        securityPlan: '',
-        testingPlan: '',
-        maintenancePlan: '',
-        updatedAt: new Date().toISOString(),
-      };
-      this.blueprints.push(blueprint);
-    }
-    
-    return blueprint;
+    // Upsert — create if not exists
+    return this.prisma.blueprint.upsert({
+      where: { projectId },
+      create: { projectId },
+      update: {},
+    });
   }
 
-  async updateBlueprint(projectId: string, updateDto: UpdateBlueprintDto, userId: string): Promise<Blueprint> {
-    const blueprint = await this.getBlueprintByProjectId(projectId, userId);
-    
-    const updatedBlueprint = {
-      ...blueprint,
-      ...updateDto,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    this.blueprints = this.blueprints.map((b: Blueprint) =>
-      b.projectId === projectId ? updatedBlueprint : b,
-    );
-    
-    return updatedBlueprint;
+  async update(
+    projectId: string,
+    updateDto: UpdateBlueprintDto,
+    userId: string,
+  ) {
+    const project = await this.projectsService.findOne(projectId, userId);
+    if ((project as any).role === 'VIEWER') {
+      throw new ForbiddenException('VIEWER cannot update blueprint');
+    }
+
+    return this.prisma.blueprint.upsert({
+      where: { projectId },
+      create: { projectId, ...updateDto },
+      update: { ...updateDto },
+    });
   }
 }

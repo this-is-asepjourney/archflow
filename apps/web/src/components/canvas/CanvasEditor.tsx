@@ -15,6 +15,10 @@ import {
   Edge,
   ReactFlowProvider,
   useReactFlow,
+  NodeChange,
+  EdgeChange,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,7 +27,13 @@ import { nodeTypes } from './nodes';
 import { NodePalette } from './NodePalette';
 import { PropertiesPanel } from './PropertiesPanel';
 import { CanvasToolbar } from './CanvasToolbar';
+import { HistoryPanel } from './HistoryPanel';
 import { useCanvasStore } from '@/stores/useCanvasStore';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { exportToMermaid, exportToPlantUML } from '@/utils/exportDiagrams';
+import { getLayoutedElements } from '@/utils/layoutElements';
+import { ImportSchemaModal } from './ImportSchemaModal';
+import { NetworkSimulation } from './NetworkSimulation';
 
 interface CanvasEditorProps {
   projectId: string;
@@ -50,66 +60,93 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
     undo,
     redo,
     pushHistory,
+    connectSocket,
+    disconnectSocket,
+    broadcastUpdate,
+    role,
   } = useCanvasStore();
+
+  const { user } = useAuthStore();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showImportSchema, setShowImportSchema] = useState(false);
+  const [showSimulation, setShowSimulation] = useState(false);
 
   // Sync store → local
   useEffect(() => {
     setNodes(storeNodes);
-  }, [storeNodes]);
+  }, [storeNodes, setNodes]);
 
   useEffect(() => {
     setEdges(storeEdges);
-  }, [storeEdges]);
+  }, [storeEdges, setEdges]);
+
+  // Connect WebSocket on mount
+  useEffect(() => {
+    if (user && canvasId) {
+      connectSocket(canvasId, { id: user.id, name: user.name });
+    }
+    return () => {
+      disconnectSocket();
+    };
+  }, [user, canvasId, connectSocket, disconnectSocket]);
 
   // Sync local → store on change
   const handleNodesChange = useCallback(
-    (changes: any) => {
-      onNodesChange(changes);
-      // Debounce store update
-      setTimeout(() => {
-        setNodes((nds) => {
-          setStoreNodes(nds);
-          return nds;
-        });
-      }, 0);
+    (changes: NodeChange[]) => {
+      setNodes((nds) => {
+        const updated = applyNodeChanges(changes, nds);
+        setTimeout(() => setStoreNodes(updated), 0);
+        return updated;
+      });
     },
-    [onNodesChange, setStoreNodes, setNodes],
+    [setNodes, setStoreNodes],
   );
 
   const handleEdgesChange = useCallback(
-    (changes: any) => {
-      onEdgesChange(changes);
-      setTimeout(() => {
-        setEdges((eds) => {
-          setStoreEdges(eds);
-          return eds;
-        });
-      }, 0);
+    (changes: EdgeChange[]) => {
+      setEdges((eds) => {
+        const updated = applyEdgeChanges(changes, eds);
+        setTimeout(() => setStoreEdges(updated), 0);
+        return updated;
+      });
     },
-    [onEdgesChange, setStoreEdges, setEdges],
+    [setEdges, setStoreEdges],
   );
+
+  // Derive edge style from diagram type
+  const getEdgeDefaults = useCallback((): Partial<Edge> => {
+    switch (canvasType) {
+      case 'ERD':
+        return { type: 'smoothstep', style: { stroke: 'hsl(38 92% 50% / 0.7)', strokeWidth: 2 }, markerEnd: { type: 'arrowclosed' } as any };
+      case 'UML':
+        return { type: 'smoothstep', style: { stroke: 'hsl(252 87% 67% / 0.7)', strokeWidth: 1.5 }, markerEnd: { type: 'arrowclosed' } as any };
+      case 'FLOW':
+      case 'CICD':
+        return { type: 'smoothstep', animated: true, style: { stroke: 'hsl(210 80% 60% / 0.7)', strokeWidth: 2 }, markerEnd: { type: 'arrowclosed' } as any };
+      default:
+        return { type: 'smoothstep', style: { stroke: 'hsl(252 87% 67% / 0.6)', strokeWidth: 2 } };
+    }
+  }, [canvasType]);
 
   const onConnect = useCallback(
     (params: Connection) => {
+      if (role === 'VIEWER') return;
       const newEdge: Edge = {
         ...params,
         id: `edge-${uuidv4()}`,
-        type: 'smoothstep',
-        animated: false,
-        style: { stroke: 'hsl(252 87% 67% / 0.6)', strokeWidth: 2 },
+        ...getEdgeDefaults(),
       } as Edge;
-      setEdges((eds) => {
-        const updated = addEdge(newEdge, eds);
-        setStoreEdges(updated);
-        return updated;
-      });
+      const updated = addEdge(newEdge, edges);
+      setEdges(updated);
+      setStoreEdges(updated);
       pushHistory();
+      setTimeout(broadcastUpdate, 0);
     },
-    [setEdges, setStoreEdges, pushHistory],
+    [edges, setEdges, setStoreEdges, pushHistory, getEdgeDefaults, broadcastUpdate, role],
   );
 
   // Drag & drop from palette
@@ -121,6 +158,7 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
   const onDrop = useCallback(
     (e: DragEvent) => {
       e.preventDefault();
+      if (role === 'VIEWER') return;
       const raw = e.dataTransfer.getData('application/archflow-node');
       if (!raw) return;
 
@@ -134,23 +172,28 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
         data: { ...data },
       };
 
-      setNodes((nds) => {
-        const updated = [...nds, newNode];
-        setStoreNodes(updated);
-        return updated;
-      });
+      const updated = [...nodes, newNode];
+      setNodes(updated);
+      setStoreEdges(edges); // Ensure edges are synchronized if needed, but here just setStoreNodes
+      setStoreNodes(updated);
       pushHistory();
+      setTimeout(broadcastUpdate, 0);
     },
-    [screenToFlowPosition, setNodes, setStoreNodes, pushHistory],
+    [nodes, edges, screenToFlowPosition, setNodes, setStoreNodes, setStoreEdges, pushHistory, broadcastUpdate, role],
   );
 
-  const handleDragStart = (event: DragEvent, nodeData: any) => {
+  const handleDragStart = (event: DragEvent, nodeData: Record<string, unknown>) => {
     event.dataTransfer.setData('application/archflow-node', JSON.stringify(nodeData));
     event.dataTransfer.effectAllowed = 'move';
   };
 
+  const onNodeDragStop = useCallback(() => {
+    // Only broadcast once dragging stops
+    broadcastUpdate();
+  }, [broadcastUpdate]);
+
   // Node selection
-  const onNodeClick = useCallback((_: any, node: Node) => {
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
   }, []);
 
@@ -161,14 +204,13 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
   // Update node data from properties panel
   const handleUpdateNodeData = useCallback(
     (id: string, data: Record<string, any>) => {
-      setNodes((nds) => {
-        const updated = nds.map((n) => (n.id === id ? { ...n, data } : n));
-        setStoreNodes(updated);
-        setSelectedNode((prev) => (prev?.id === id ? { ...prev, data } : prev));
-        return updated;
-      });
+      const updated = nodes.map((n) => (n.id === id ? { ...n, data } : n));
+      setNodes(updated);
+      setStoreNodes(updated);
+      setSelectedNode((prev) => (prev?.id === id ? { ...prev, data } : prev));
+      setTimeout(broadcastUpdate, 0);
     },
-    [setNodes, setStoreNodes],
+    [nodes, setNodes, setStoreNodes, broadcastUpdate],
   );
 
   // Keyboard shortcuts
@@ -190,6 +232,30 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, saveCanvas]);
+
+  const handleAutoLayout = useCallback(() => {
+    if (role === 'VIEWER') return;
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'TB');
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+    setTimeout(() => {
+      setStoreNodes(layoutedNodes);
+      setStoreEdges(layoutedEdges);
+      pushHistory();
+      broadcastUpdate();
+    }, 0);
+  }, [nodes, edges, setNodes, setEdges, setStoreNodes, setStoreEdges, pushHistory, broadcastUpdate, role]);
+
+  const handleImportSchema = useCallback((importedNodes: Node[], importedEdges: Edge[]) => {
+    setNodes(importedNodes);
+    setEdges(importedEdges);
+    setTimeout(() => {
+      setStoreNodes(importedNodes);
+      setStoreEdges(importedEdges);
+      pushHistory();
+      broadcastUpdate();
+    }, 0);
+  }, [setNodes, setEdges, setStoreNodes, setStoreEdges, pushHistory, broadcastUpdate]);
 
   // Export PNG
   const handleExportPng = useCallback(() => {
@@ -227,6 +293,30 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
     URL.revokeObjectURL(url);
   }, [canvasName, canvasType, nodes, edges]);
 
+  // Export Mermaid
+  const handleExportMermaid = useCallback(() => {
+    const mermaidCode = exportToMermaid(nodes, edges, canvasType);
+    const blob = new Blob([mermaidCode], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `${canvasName || 'canvas'}.mmd`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [canvasName, canvasType, nodes, edges]);
+
+  // Export PlantUML
+  const handleExportPlantUML = useCallback(() => {
+    const pumlCode = exportToPlantUML(nodes, edges, canvasType);
+    const blob = new Blob([pumlCode], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `${canvasName || 'canvas'}.puml`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [canvasName, canvasType, nodes, edges]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Toolbar */}
@@ -241,30 +331,45 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
         onRedo={redo}
         onExportPng={handleExportPng}
         onExportJson={handleExportJson}
+        onExportMermaid={handleExportMermaid}
+        onExportPlantUML={handleExportPlantUML}
+        onToggleHistory={() => setShowHistory((prev) => !prev)}
         historyIndex={historyIndex}
         historyLength={history.length}
+        onAutoLayout={handleAutoLayout}
+        onImportSchema={() => setShowImportSchema(true)}
+        onSimulate={() => setShowSimulation(true)}
       />
 
       {/* Canvas area */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left palette */}
-        <NodePalette onDragStart={handleDragStart} />
+        <NodePalette canvasType={canvasType} onDragStart={handleDragStart} />
 
         {/* React Flow canvas */}
         <div ref={reactFlowWrapper} style={{ flex: 1, position: 'relative' }}>
+          {role === 'VIEWER' && (
+            <div style={{ position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 50, background: 'hsl(var(--warning)/0.2)', color: 'hsl(var(--warning))', padding: '8px 16px', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 500, border: '1px solid hsl(var(--warning)/0.3)', backdropFilter: 'blur(8px)' }}>
+              Viewing as Guest/Viewer (Read-only)
+            </div>
+          )}
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={onConnect}
+            onNodesChange={role === 'VIEWER' ? undefined : handleNodesChange}
+            onEdgesChange={role === 'VIEWER' ? undefined : handleEdgesChange}
+            onConnect={role === 'VIEWER' ? undefined : onConnect}
             onNodeClick={onNodeClick}
+            onNodeDragStop={onNodeDragStop}
             onPaneClick={onPaneClick}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
+        onDragOver={onDragOver}
+            onDrop={role === 'VIEWER' ? undefined : onDrop}
             nodeTypes={nodeTypes}
             onMoveEnd={(_, viewport) => setViewport(viewport)}
             fitView
+            nodesDraggable={role !== 'VIEWER'}
+            nodesConnectable={role !== 'VIEWER'}
+            elementsSelectable={role !== 'VIEWER'}
             snapToGrid
             snapGrid={[16, 16]}
             minZoom={0.1}
@@ -320,12 +425,29 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
           )}
         </div>
 
-        {/* Right properties panel */}
-        {selectedNode && (
+        {/* Right properties panel or history panel */}
+        {showHistory ? (
+          <HistoryPanel canvasId={canvasId} onClose={() => setShowHistory(false)} />
+        ) : selectedNode && role !== 'VIEWER' ? (
           <PropertiesPanel
             node={selectedNode}
             onClose={() => setSelectedNode(null)}
             onUpdate={handleUpdateNodeData}
+          />
+        ) : null}
+
+        {showImportSchema && (
+          <ImportSchemaModal
+            onClose={() => setShowImportSchema(false)}
+            onImport={handleImportSchema}
+          />
+        )}
+
+        {showSimulation && (
+          <NetworkSimulation
+            nodes={nodes}
+            edges={edges}
+            onClose={() => setShowSimulation(false)}
           />
         )}
       </div>

@@ -1,60 +1,95 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import { Project } from './project.entity';
-import { CreateProjectDto, UpdateProjectDto } from './project.dto';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { WorkspacesService } from '../workspaces/workspaces.service';
+import { CreateProjectDto, UpdateProjectDto } from './project.dto';
 
 @Injectable()
 export class ProjectsService {
-  private projects: Project[] = [];
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly workspacesService: WorkspacesService,
+  ) {}
 
-  constructor(private workspacesService: WorkspacesService) {}
-
-  create(dto: CreateProjectDto, userId: string): Project {
+  async create(dto: CreateProjectDto, userId: string) {
     // Verify user has access to workspace
-    this.workspacesService.findOne(dto.workspaceId, userId);
+    const workspace = await this.workspacesService.findOne(
+      dto.workspaceId,
+      userId,
+    );
+    if (workspace.role === 'VIEWER') {
+      throw new ForbiddenException('VIEWER cannot create projects');
+    }
 
-    const project: Project = {
-      id: uuidv4(),
-      name: dto.name,
-      description: dto.description,
-      workspaceId: dto.workspaceId,
-      createdBy: userId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.projects.push(project);
+    const project = await this.prisma.project.create({
+      data: {
+        name: dto.name,
+        description: dto.description,
+        workspaceId: dto.workspaceId,
+        ownerId: userId,
+      },
+    });
+
+    if (dto.templateId) {
+      const template = await this.prisma.template.findUnique({
+        where: { id: dto.templateId },
+      });
+      if (template) {
+        await this.prisma.canvas.create({
+          data: {
+            projectId: project.id,
+            name: `${template.name} Architecture`,
+            type: template.type,
+            createdBy: userId,
+            nodes: template.nodes || [],
+            edges: template.edges || [],
+            viewport: { x: 0, y: 0, zoom: 1 },
+          },
+        });
+      }
+    }
+
     return project;
   }
 
-  findAllForWorkspace(workspaceId: string, userId: string): Project[] {
-    this.workspacesService.findOne(workspaceId, userId);
-    return this.projects.filter((p) => p.workspaceId === workspaceId);
+  async findAllForWorkspace(workspaceId: string, userId: string) {
+    await this.workspacesService.findOne(workspaceId, userId);
+    return this.prisma.project.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  findOne(id: string, userId: string): Project {
-    const project = this.projects.find((p) => p.id === id);
+  async findOne(id: string, userId: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
     // Check workspace access
-    this.workspacesService.findOne(project.workspaceId, userId);
-    return project;
+    const workspace = await this.workspacesService.findOne(
+      project.workspaceId,
+      userId,
+    );
+    return { ...project, role: workspace.role };
   }
 
-  update(id: string, dto: UpdateProjectDto, userId: string): Project {
-    const project = this.findOne(id, userId);
-    if (dto.name) project.name = dto.name;
-    if (dto.description !== undefined) project.description = dto.description;
-    project.updatedAt = new Date();
-    return project;
+  async update(id: string, dto: UpdateProjectDto, userId: string) {
+    const project = await this.findOne(id, userId);
+    if ((project as any).role === 'VIEWER') {
+      throw new ForbiddenException('VIEWER cannot update projects');
+    }
+    return this.prisma.project.update({
+      where: { id },
+      data: { name: dto.name, description: dto.description },
+    });
   }
 
-  remove(id: string, userId: string): void {
-    const project = this.findOne(id, userId);
-    const workspace = this.workspacesService.findOne(project.workspaceId, userId);
-    const member = workspace.members.find((m) => m.userId === userId);
-    if (member?.role === 'VIEWER') {
+  async remove(id: string, userId: string) {
+    const project = await this.findOne(id, userId);
+    if ((project as any).role === 'VIEWER') {
       throw new ForbiddenException('Insufficient permissions');
     }
-    this.projects = this.projects.filter((p) => p.id !== id);
+    await this.prisma.project.delete({ where: { id } });
   }
 }

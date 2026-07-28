@@ -62,6 +62,11 @@ pnpm dev
 | GET/POST | /api/projects/:id/canvas | Canvases |
 | PATCH | /api/projects/:id/canvas/:canvasId | Save canvas |
 | GET | /api/projects/:id/canvas/:canvasId/export/json | Export JSON |
+| GET/PATCH | /api/projects/:id/blueprint | Blueprint |
+| GET/POST/PATCH/DELETE | /api/projects/:id/requirements | Requirements |
+| GET | /api/projects/:id/documentation/markdown | Doc preview |
+| GET | /api/projects/:id/documentation/export/markdown | Export Markdown |
+| GET | /api/projects/:id/documentation/export/pdf | Export PDF |
 
 ## Features (Phase 1 MVP)
 
@@ -79,11 +84,20 @@ pnpm dev
 - ✅ Export PNG & JSON
 - ✅ Auto-save on Ctrl+S
 
+## Features (Phase 2)
+
+- ✅ Blueprint Builder (11 sections: requirements, ADR, risks, plans)
+- ✅ Requirement Management (CRUD, status, priority, type filter)
+- ✅ Canvas node linking on requirements
+- ✅ Documentation generator (Markdown preview + export)
+- ✅ PDF export (server-side)
+- ✅ Print-friendly documentation layout
+
 ## Roadmap
 
 | Phase | Features |
 |---|---|
-| Phase 2 | Blueprint Builder, Requirements Management, Documentation |
+| Phase 2 | ~~Blueprint Builder, Requirements Management, Documentation~~ ✅ |
 | Phase 3 | ERD Builder, UML Builder, Mermaid/PlantUML export |
 | Phase 4 | Real-time Collaboration, Comments, Version History |
 | Phase 5 | API Design module, Infrastructure Builder |

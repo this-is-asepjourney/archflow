@@ -12,12 +12,14 @@ import {
   ChevronRight,
   Bell,
   User,
+  Library,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: FolderOpen, label: 'Projects', href: '/projects' },
+  { icon: Library, label: 'Templates', href: '/templates' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   FolderOpen,
@@ -45,6 +45,8 @@ const CANVAS_TYPE_ICONS: Record<string, React.ElementType> = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get('templateId');
   const { user, initialize } = useAuthStore();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -60,6 +62,12 @@ export default function DashboardPage() {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (templateId) {
+      setShowNewProject(true);
+    }
+  }, [templateId]);
 
   useEffect(() => {
     fetchWorkspaces();
@@ -114,11 +122,18 @@ export default function DashboardPage() {
         name: newProjectName,
         description: newProjectDesc,
         workspaceId: activeWorkspace.id,
+        templateId: templateId || undefined,
       });
       setProjects((prev) => [...prev, data]);
       setNewProjectName('');
       setNewProjectDesc('');
       setShowNewProject(false);
+      
+      // Clear templateId from URL after creation
+      if (templateId) {
+        router.replace('/dashboard');
+      }
+      
       router.push(`/projects/${data.id}`);
     } catch {}
   };
@@ -277,7 +292,9 @@ export default function DashboardPage() {
                   className="glass animate-fade-in"
                   style={{ padding: '1.25rem', borderRadius: 12, marginBottom: '1.5rem' }}
                 >
-                  <h3 style={{ fontWeight: 600, marginBottom: '1rem' }}>New Project</h3>
+                  <h3 style={{ fontWeight: 600, marginBottom: '1rem' }}>
+                    {templateId ? 'New Project from Template' : 'New Project'}
+                  </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <input
                       autoFocus

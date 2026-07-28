@@ -1,5 +1,13 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from './workspace.dto';
@@ -26,7 +34,11 @@ export class WorkspacesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateWorkspaceDto, @Req() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkspaceDto,
+    @Req() req: any,
+  ) {
     return this.workspacesService.update(id, dto, req.user.id);
   }
 

@@ -1,5 +1,15 @@
-import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import type { RequirementType, RequirementStatus, RequirementPriority } from './requirement.entity';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import type {
+  RequirementType,
+  RequirementStatus,
+  RequirementPriority,
+} from './requirement.entity';
 
 export class CreateRequirementDto {
   @IsNotEmpty()
@@ -16,6 +26,11 @@ export class CreateRequirementDto {
   @IsOptional()
   @IsEnum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
   priority?: RequirementPriority;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  linkedNodeIds?: string[];
 }
 
 export class UpdateRequirementDto {

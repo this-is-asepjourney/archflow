@@ -10,15 +10,67 @@ export class DocumentationController {
 
   @Get('markdown')
   async getMarkdown(@Param('projectId') projectId: string, @Req() req: any) {
-    const markdown = await this.documentationService.generateMarkdown(projectId, req.user.id);
+    const markdown = await this.documentationService.generateMarkdown(
+      projectId,
+      req.user.id,
+    );
     return { markdown };
   }
 
   @Get('export/markdown')
-  async downloadMarkdown(@Param('projectId') projectId: string, @Req() req: any, @Res() res: Response) {
-    const markdown = await this.documentationService.generateMarkdown(projectId, req.user.id);
-    res.setHeader('Content-Type', 'text/markdown');
-    res.setHeader('Content-Disposition', `attachment; filename=project-${projectId}-docs.md`);
+  async downloadMarkdown(
+    @Param('projectId') projectId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const markdown = await this.documentationService.generateMarkdown(
+      projectId,
+      req.user.id,
+    );
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="project-${projectId}-docs.md"`,
+    );
     res.send(markdown);
+  }
+
+  @Get('export/pdf')
+  async downloadPdf(
+    @Param('projectId') projectId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.documentationService.generatePdfBuffer(
+      projectId,
+      req.user.id,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="project-${projectId}-docs.pdf"`,
+    );
+    res.send(pdfBuffer);
+  }
+
+  @Get('export/docx')
+  async downloadDocx(
+    @Param('projectId') projectId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const docxBuffer = await this.documentationService.generateDocxBuffer(
+      projectId,
+      req.user.id,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="project-${projectId}-docs.docx"`,
+    );
+    res.send(docxBuffer);
   }
 }

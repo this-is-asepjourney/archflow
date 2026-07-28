@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Network, Workflow, Database, GitBranch, Cloud, ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { Plus, Network, Workflow, Database, GitBranch, Cloud, ArrowLeft } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Canvas {
   id: string;
   name: string;
   type: string;
-  nodes: any[];
-  edges: any[];
+  nodes: Record<string, unknown>[];
+  edges: Record<string, unknown>[];
   createdAt: string;
 }
 
@@ -23,11 +23,12 @@ interface Project {
 }
 
 const CANVAS_TYPES = [
-  { value: 'TOPOLOGY', label: 'Topology', icon: Network, color: 'var(--primary)', desc: 'Network & infrastructure diagram' },
-  { value: 'FLOW', label: 'Flow', icon: Workflow, color: 'var(--accent)', desc: 'Business process & application flow' },
-  { value: 'ERD', label: 'ERD', icon: Database, color: 'var(--success)', desc: 'Database entity-relationship diagram' },
-  { value: 'UML', label: 'UML', icon: GitBranch, color: 'var(--warning)', desc: 'UML class, sequence, use case...' },
-  { value: 'INFRASTRUCTURE', label: 'Infrastructure', icon: Cloud, color: 'var(--accent)', desc: 'Cloud & container architecture' },
+  { value: 'TOPOLOGY', label: 'Topology', icon: Network, color: '252 87% 67%', desc: 'Network & infrastructure diagram' },
+  { value: 'FLOW', label: 'Flow', icon: Workflow, color: '192 100% 60%', desc: 'Business process & application flow' },
+  { value: 'ERD', label: 'ERD', icon: Database, color: '142 71% 45%', desc: 'Database entity-relationship diagram' },
+  { value: 'UML', label: 'UML', icon: GitBranch, color: '38 92% 50%', desc: 'UML class, sequence, use case...' },
+  { value: 'INFRASTRUCTURE', label: 'Infrastructure', icon: Cloud, color: '210 80% 60%', desc: 'Cloud & container architecture' },
+  { value: 'CICD', label: 'CI/CD', icon: Workflow, color: '142 71% 45%', desc: 'DevOps pipeline & deployment flow' },
 ];
 
 export default function ProjectPage() {
@@ -40,11 +41,6 @@ export default function ProjectPage() {
   const [showNewCanvas, setShowNewCanvas] = useState(false);
   const [newCanvasName, setNewCanvasName] = useState('');
   const [newCanvasType, setNewCanvasType] = useState('TOPOLOGY');
-
-  useEffect(() => {
-    fetchProject();
-    fetchCanvases();
-  }, [projectId]);
 
   const fetchProject = async () => {
     try {
@@ -67,6 +63,12 @@ export default function ProjectPage() {
     }
   };
 
+  useEffect(() => {
+    fetchProject();
+    fetchCanvases();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
   const handleCreateCanvas = async () => {
     if (!newCanvasName.trim()) return;
     try {
@@ -78,7 +80,10 @@ export default function ProjectPage() {
       setNewCanvasName('');
       setShowNewCanvas(false);
       router.push(`/projects/${projectId}/canvas/${data.id}`);
-    } catch {}
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      alert('Error creating canvas: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const getTypeInfo = (type: string) => CANVAS_TYPES.find((t) => t.value === type) || CANVAS_TYPES[0];

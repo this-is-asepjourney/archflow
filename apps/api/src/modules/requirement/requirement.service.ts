@@ -1,65 +1,75 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import { Requirement } from './requirement.entity';
-import { CreateRequirementDto, UpdateRequirementDto } from './requirement.dto';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
+import { CreateRequirementDto, UpdateRequirementDto } from './requirement.dto';
 
 @Injectable()
 export class RequirementService {
-  private requirements: Requirement[] = [];
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectsService: ProjectsService,
+  ) {}
 
-  constructor(private readonly projectsService: ProjectsService) {}
-
-  async findAllByProject(projectId: string, userId: string): Promise<Requirement[]> {
+  async findAllByProject(projectId: string, userId: string) {
     await this.projectsService.findOne(projectId, userId);
-    return this.requirements.filter((r: Requirement) => r.projectId === projectId);
+    return this.prisma.requirement.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  async findOne(id: string, userId: string): Promise<Requirement> {
-    const requirement = this.requirements.find((r: Requirement) => r.id === id);
-    if (!requirement) {
+  async findOne(id: string, userId: string) {
+    const requirement = await this.prisma.requirement.findUnique({
+      where: { id },
+    });
+    if (!requirement)
       throw new NotFoundException(`Requirement with ID ${id} not found`);
-    }
-    // ensure user has access to the project
-    await this.projectsService.findOne(requirement.projectId, userId);
-    return requirement;
+    const project = await this.projectsService.findOne(
+      requirement.projectId,
+      userId,
+    );
+    return { ...requirement, role: (project as any).role };
   }
 
-  async create(projectId: string, createDto: CreateRequirementDto, userId: string): Promise<Requirement> {
-    await this.projectsService.findOne(projectId, userId);
-
-    const requirement: Requirement = {
-      id: uuidv4(),
-      projectId,
-      title: createDto.title,
-      description: createDto.description || '',
-      type: createDto.type,
-      status: 'DRAFT',
-      priority: createDto.priority || 'MEDIUM',
-      linkedNodeIds: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.requirements.push(requirement);
-    return requirement;
+  async create(
+    projectId: string,
+    createDto: CreateRequirementDto,
+    userId: string,
+  ) {
+    const project = await this.projectsService.findOne(projectId, userId);
+    if ((project as any).role === 'VIEWER')
+      throw new ForbiddenException('VIEWER cannot create requirements');
+    return this.prisma.requirement.create({
+      data: {
+        projectId,
+        createdById: userId,
+        title: createDto.title,
+        description: createDto.description || '',
+        type: createDto.type,
+        priority: createDto.priority || 'MEDIUM',
+        status: 'DRAFT',
+      },
+    });
   }
 
-  async update(id: string, updateDto: UpdateRequirementDto, userId: string): Promise<Requirement> {
-    const requirement = await this.findOne(id, userId);
-
-    const updatedRequirement = {
-      ...requirement,
-      ...updateDto,
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.requirements = this.requirements.map((r: Requirement) => (r.id === id ? updatedRequirement : r));
-    return updatedRequirement;
+  async update(id: string, updateDto: UpdateRequirementDto, userId: string) {
+    const req = await this.findOne(id, userId);
+    if ((req as any).role === 'VIEWER')
+      throw new ForbiddenException('VIEWER cannot update requirements');
+    return this.prisma.requirement.update({
+      where: { id },
+      data: { ...updateDto },
+    });
   }
 
-  async remove(id: string, userId: string): Promise<void> {
-    await this.findOne(id, userId);
-    this.requirements = this.requirements.filter((r: Requirement) => r.id !== id);
+  async remove(id: string, userId: string) {
+    const req = await this.findOne(id, userId);
+    if ((req as any).role === 'VIEWER')
+      throw new ForbiddenException('VIEWER cannot delete requirements');
+    await this.prisma.requirement.delete({ where: { id } });
   }
 }

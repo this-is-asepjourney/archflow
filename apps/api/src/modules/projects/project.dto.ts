@@ -12,6 +12,10 @@ export class CreateProjectDto {
   @IsString()
   @IsNotEmpty()
   workspaceId: string;
+
+  @IsString()
+  @IsOptional()
+  templateId?: string;
 }
 
 export class UpdateProjectDto {

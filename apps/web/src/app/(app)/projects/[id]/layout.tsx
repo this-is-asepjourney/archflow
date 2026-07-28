@@ -1,11 +1,12 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function ProjectLayout({ children, params }: { children: React.ReactNode, params: { id: string } }) {
+export default function ProjectLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const projectId = params.id;
+  const params = useParams();
+  const projectId = params.id as string;
 
   // Don't show project tabs when inside the full-screen canvas editor
   if (pathname.includes('/canvas/')) {
@@ -16,6 +17,7 @@ export default function ProjectLayout({ children, params }: { children: React.Re
     { name: 'Canvas', href: `/projects/${projectId}` },
     { name: 'Blueprint', href: `/projects/${projectId}/blueprint` },
     { name: 'Requirements', href: `/projects/${projectId}/requirements` },
+    { name: 'API Design', href: `/projects/${projectId}/api-design` },
     { name: 'Documentation', href: `/projects/${projectId}/documentation` },
   ];
 

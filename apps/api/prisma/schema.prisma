@@ -1,0 +1,259 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User & Auth ─────────────────────────────────────────────────────────────
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workspaceMembers WorkspaceMember[]
+  projects         Project[]
+  canvases         Canvas[]
+  requirements     Requirement[]
+  comments         Comment[]
+  canvasHistory    CanvasHistory[]
+
+  @@map("users")
+}
+
+// ─── Workspace ────────────────────────────────────────────────────────────────
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  slug        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members  WorkspaceMember[]
+  projects Project[]
+  templates Template[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String          @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole   @default(VIEWER)
+  joinedAt    DateTime        @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+enum WorkspaceRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+// ─── Project ──────────────────────────────────────────────────────────────────
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  workspaceId String
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner        User          @relation(fields: [ownerId], references: [id])
+  canvases     Canvas[]
+  blueprint    Blueprint?
+  requirements Requirement[]
+  apiEndpoints ApiEndpoint[]
+
+  @@map("projects")
+}
+
+// ─── Canvas ───────────────────────────────────────────────────────────────────
+model Canvas {
+  id        String     @id @default(uuid())
+  name      String
+  type      CanvasType @default(TOPOLOGY)
+  projectId String
+  createdBy String
+  nodes     Json       @default("[]")
+  edges     Json       @default("[]")
+  viewport  Json?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id])
+  history CanvasHistory[]
+
+  @@map("canvases")
+}
+
+model CanvasHistory {
+  id        String   @id @default(uuid())
+  canvasId  String
+  nodes     Json     @default("[]")
+  edges     Json     @default("[]")
+  viewport  Json?
+  savedBy   String
+  createdAt DateTime @default(now())
+
+  canvas  Canvas @relation(fields: [canvasId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [savedBy], references: [id])
+
+  @@map("canvas_history")
+}
+
+enum CanvasType {
+  TOPOLOGY
+  FLOW
+  ERD
+  UML
+  INFRASTRUCTURE
+  CICD
+  SEQUENCE
+}
+
+// ─── Blueprint ────────────────────────────────────────────────────────────────
+model Blueprint {
+  id                       String   @id @default(uuid())
+  projectId                String   @unique
+  businessRequirements     String   @default("")
+  functionalRequirements   String   @default("")
+  nonFunctionalRequirements String  @default("")
+  architectureDecisions    String   @default("")
+  technicalNotes           String   @default("")
+  risks                    String   @default("")
+  milestones               String   @default("")
+  deploymentPlan           String   @default("")
+  securityPlan             String   @default("")
+  testingPlan              String   @default("")
+  maintenancePlan          String   @default("")
+  updatedAt                DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("blueprints")
+}
+
+// ─── Requirement ──────────────────────────────────────────────────────────────
+model Requirement {
+  id           String              @id @default(uuid())
+  projectId    String
+  createdById  String
+  title        String
+  description  String              @default("")
+  type         RequirementType
+  status       RequirementStatus   @default(DRAFT)
+  priority     RequirementPriority @default(MEDIUM)
+  linkedNodeIds String[]           @default([])
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@map("requirements")
+}
+
+enum RequirementType {
+  BUSINESS
+  FUNCTIONAL
+  NON_FUNCTIONAL
+}
+
+enum RequirementStatus {
+  DRAFT
+  IN_PROGRESS
+  REVIEW
+  APPROVED
+  DONE
+}
+
+enum RequirementPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ─── Comment ──────────────────────────────────────────────────────────────────
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  authorId  String
+  canvasId  String?
+  nodeId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model ApiEndpoint {
+  id             String   @id @default(uuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  method         String
+  path           String
+  description    String?  @db.Text
+  requestSchema  Json?
+  responseSchema Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("api_endpoints")
+}
+
+// ─── Templates ────────────────────────────────────────────────────────────────
+model TemplateCategory {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  templates Template[]
+
+  @@map("template_categories")
+}
+
+model Template {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  type        CanvasType @default(TOPOLOGY)
+  isOfficial  Boolean  @default(false)
+  nodes       Json     @default("[]")
+  edges       Json     @default("[]")
+  categoryId  String
+  workspaceId String?  // If null, it's a global template (official). If set, it's custom to a workspace
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category    TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  workspace   Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("templates")
+}

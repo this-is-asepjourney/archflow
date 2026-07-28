@@ -35,4 +35,18 @@ api.interceptors.response.use(
   },
 );
 
+/** Download a file from an authenticated API endpoint */
+export async function downloadFile(url: string, filename: string) {
+  const response = await api.get(url, { responseType: 'blob' });
+  const blob = new Blob([response.data], { type: response.headers['content-type'] });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(objectUrl);
+}
+
 export default api;
