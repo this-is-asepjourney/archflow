@@ -59,6 +59,13 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Edit states
+  const [editingWorkspace, setEditingWorkspace] = useState<Workspace | null>(null);
+  const [editWorkspaceName, setEditWorkspaceName] = useState('');
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editProjectName, setEditProjectName] = useState('');
+  const [editProjectDesc, setEditProjectDesc] = useState('');
+
   useEffect(() => {
     initialize();
   }, [initialize]);
@@ -138,11 +145,45 @@ export default function DashboardPage() {
     } catch {}
   };
 
+  const handleUpdateProject = async () => {
+    if (!editingProject || !editProjectName.trim()) return;
+    try {
+      const { data } = await api.patch(`/projects/${editingProject.id}`, {
+        name: editProjectName,
+        description: editProjectDesc,
+      });
+      setProjects((prev) => prev.map(p => p.id === data.id ? data : p));
+      setEditingProject(null);
+    } catch {}
+  };
+
   const handleDeleteProject = async (projectId: string) => {
     if (!confirm('Delete this project?')) return;
     try {
       await api.delete(`/projects/${projectId}`);
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch {}
+  };
+
+  const handleUpdateWorkspace = async () => {
+    if (!editingWorkspace || !editWorkspaceName.trim()) return;
+    try {
+      const { data } = await api.patch(`/workspaces/${editingWorkspace.id}`, { name: editWorkspaceName });
+      setWorkspaces((prev) => prev.map(w => w.id === data.id ? data : w));
+      if (activeWorkspace?.id === data.id) setActiveWorkspace(data);
+      setEditingWorkspace(null);
+    } catch {}
+  };
+
+  const handleDeleteWorkspace = async (workspaceId: string) => {
+    if (!confirm('Are you sure you want to delete this workspace and all its projects?')) return;
+    try {
+      await api.delete(`/workspaces/${workspaceId}`);
+      setWorkspaces((prev) => prev.filter(w => w.id !== workspaceId));
+      if (activeWorkspace?.id === workspaceId) {
+        setActiveWorkspace(null);
+        setProjects([]);
+      }
     } catch {}
   };
 
@@ -200,37 +241,64 @@ export default function DashboardPage() {
               </button>
             ) : (
               workspaces.map((ws) => (
-                <button
-                  key={ws.id}
-                  onClick={() => handleSelectWorkspace(ws)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.625rem',
-                    padding: '0.625rem 0.75rem',
-                    borderRadius: 8,
-                    background: activeWorkspace?.id === ws.id
-                      ? 'hsl(var(--primary) / 0.1)'
-                      : 'transparent',
-                    border: activeWorkspace?.id === ws.id
-                      ? '1px solid hsl(var(--primary) / 0.2)'
-                      : '1px solid transparent',
-                    color: activeWorkspace?.id === ws.id
-                      ? 'hsl(var(--primary-glow))'
-                      : 'hsl(var(--foreground-muted))',
-                    cursor: 'pointer',
-                    width: '100%',
-                    textAlign: 'left',
-                    fontSize: '0.875rem',
-                    fontWeight: activeWorkspace?.id === ws.id ? 500 : 400,
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <Building2 size={16} style={{ flexShrink: 0 }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {ws.name}
-                  </span>
-                </button>
+                <div key={ws.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {editingWorkspace?.id === ws.id ? (
+                    <div className="glass" style={{ padding: '0.75rem', borderRadius: 8 }}>
+                      <input
+                        autoFocus
+                        className="input"
+                        value={editWorkspaceName}
+                        onChange={(e) => setEditWorkspaceName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateWorkspace()}
+                        style={{ marginBottom: '0.5rem' }}
+                      />
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={handleUpdateWorkspace}>Save</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setEditingWorkspace(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.625rem 0.75rem',
+                        borderRadius: 8,
+                        background: activeWorkspace?.id === ws.id ? 'hsl(var(--primary) / 0.1)' : 'transparent',
+                        border: activeWorkspace?.id === ws.id ? '1px solid hsl(var(--primary) / 0.2)' : '1px solid transparent',
+                        color: activeWorkspace?.id === ws.id ? 'hsl(var(--primary-glow))' : 'hsl(var(--foreground-muted))',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onClick={() => handleSelectWorkspace(ws)}
+                      className="group"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', overflow: 'hidden' }}>
+                        <Building2 size={16} style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.875rem', fontWeight: activeWorkspace?.id === ws.id ? 500 : 400 }}>
+                          {ws.name}
+                        </span>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingWorkspace(ws); setEditWorkspaceName(ws.name); }}
+                          className="p-1 hover:text-primary transition-colors"
+                          title="Edit Workspace"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteWorkspace(ws.id); }}
+                          className="p-1 hover:text-destructive transition-colors"
+                          title="Delete Workspace"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))
             )}
           </div>
@@ -321,6 +389,41 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {/* Edit Project Form */}
+              {editingProject && (
+                <div
+                  className="glass animate-fade-in"
+                  style={{ padding: '1.25rem', borderRadius: 12, marginBottom: '1.5rem', border: '1px solid hsl(var(--primary) / 0.5)' }}
+                >
+                  <h3 style={{ fontWeight: 600, marginBottom: '1rem', color: 'hsl(var(--primary-glow))' }}>
+                    Edit Project
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <input
+                      autoFocus
+                      className="input"
+                      placeholder="Project name *"
+                      value={editProjectName}
+                      onChange={(e) => setEditProjectName(e.target.value)}
+                    />
+                    <input
+                      className="input"
+                      placeholder="Description (optional)"
+                      value={editProjectDesc}
+                      onChange={(e) => setEditProjectDesc(e.target.value)}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditingProject(null)}>
+                        Cancel
+                      </button>
+                      <button className="btn btn-primary btn-sm" onClick={handleUpdateProject}>
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Projects Grid */}
               {loading ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
@@ -385,13 +488,26 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Actions */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteProject(project.id); }}
-                        className="btn btn-ghost btn-icon btn-sm"
-                        style={{ position: 'absolute', top: 12, right: 12, color: 'hsl(var(--foreground-subtle))' }}
+                      <div
+                        style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: '0.25rem' }}
                       >
-                        <Trash2 size={14} />
-                      </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingProject(project); setEditProjectName(project.name); setEditProjectDesc(project.description || ''); }}
+                          className="btn btn-ghost btn-icon btn-sm hover:text-primary transition-colors"
+                          style={{ color: 'hsl(var(--foreground-subtle))' }}
+                          title="Edit Project"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteProject(project.id); }}
+                          className="btn btn-ghost btn-icon btn-sm hover:text-destructive transition-colors"
+                          style={{ color: 'hsl(var(--foreground-subtle))' }}
+                          title="Delete Project"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

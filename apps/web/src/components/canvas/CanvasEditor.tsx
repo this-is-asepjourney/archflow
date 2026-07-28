@@ -233,6 +233,16 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, saveCanvas]);
 
+  // Autosave
+  useEffect(() => {
+    if (isDirty && role !== 'VIEWER') {
+      const timer = setTimeout(() => {
+        saveCanvas();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isDirty, role, saveCanvas]);
+
   const handleAutoLayout = useCallback(() => {
     if (role === 'VIEWER') return;
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'TB');
