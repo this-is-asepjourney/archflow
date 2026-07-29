@@ -41,39 +41,44 @@ export default function ProjectPage() {
   const [showNewCanvas, setShowNewCanvas] = useState(false);
   const [newCanvasName, setNewCanvasName] = useState('');
   const [newCanvasType, setNewCanvasType] = useState('TOPOLOGY');
-
-  const fetchProject = async () => {
-    try {
-      const { data } = await api.get(`/projects/${projectId}`);
-      setProject(data);
-    } catch {
-      router.push('/dashboard');
-    }
-  };
-
-  const fetchCanvases = async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.get(`/projects/${projectId}/canvas`);
-      setCanvases(data);
-    } catch {
-      setCanvases([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+    
+    const fetchProject = async () => {
+      try {
+        const { data } = await api.get(`/projects/${projectId}`);
+        if (mounted) setProject(data);
+      } catch {
+        router.push('/dashboard');
+      }
+    };
+
+    const fetchCanvases = async () => {
+      if (mounted) setLoading(true);
+      try {
+        const { data } = await api.get(`/projects/${projectId}/canvas`);
+        if (mounted) setCanvases(data);
+      } catch {
+        if (mounted) setCanvases([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
     fetchProject();
     fetchCanvases();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+    
+    return () => { mounted = false; };
+  }, [projectId, router]);
 
   const handleCreateCanvas = async () => {
-    if (!newCanvasName.trim()) return;
+    const finalName = newCanvasName.trim() || 'Untitled Canvas';
+    setIsCreating(true);
     try {
       const { data } = await api.post(`/projects/${projectId}/canvas`, {
-        name: newCanvasName,
+        name: finalName,
         type: newCanvasType,
       });
       setCanvases((prev) => [...prev, data]);
@@ -83,6 +88,8 @@ export default function ProjectPage() {
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } }; message?: string };
       alert('Error creating canvas: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -171,11 +178,11 @@ export default function ProjectPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowNewCanvas(false)}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowNewCanvas(false)} disabled={isCreating}>
                 Cancel
               </button>
-              <button className="btn btn-primary btn-sm" onClick={handleCreateCanvas}>
-                Create Canvas
+              <button className="btn btn-primary btn-sm" onClick={handleCreateCanvas} disabled={isCreating}>
+                {isCreating ? 'Creating...' : 'Create Canvas'}
               </button>
             </div>
           </div>

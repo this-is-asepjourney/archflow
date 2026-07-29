@@ -38,7 +38,8 @@ async function main() {
   await prisma.template.create({
     data: {
       name: 'E-Commerce Microservices',
-      description: 'Standard e-commerce backend topology with API Gateway, Auth, Product, and Order services.',
+      description:
+        'Standard e-commerce backend topology with API Gateway, Auth, Product, and Order services.',
       type: CanvasType.TOPOLOGY,
       isOfficial: true,
       categoryId: catMicroservices.id,
@@ -94,7 +95,8 @@ async function main() {
   await prisma.template.create({
     data: {
       name: 'SaaS Monolith',
-      description: 'A traditional monolith architecture with a single backend service, PostgreSQL DB, and Redis cache.',
+      description:
+        'A traditional monolith architecture with a single backend service, PostgreSQL DB, and Redis cache.',
       type: CanvasType.TOPOLOGY,
       isOfficial: true,
       categoryId: catMonolith.id,
@@ -136,7 +138,8 @@ async function main() {
   await prisma.template.create({
     data: {
       name: 'Blog Platform ERD',
-      description: 'Entity Relationship Diagram for a simple blog with Users, Posts, and Comments.',
+      description:
+        'Entity Relationship Diagram for a simple blog with Users, Posts, and Comments.',
       type: CanvasType.ERD,
       isOfficial: true,
       categoryId: catDatabase.id,
@@ -184,9 +187,24 @@ async function main() {
         },
       ],
       edges: [
-        { id: 'e-user-post', source: 'node-user', target: 'node-post', type: 'smoothstep' },
-        { id: 'e-post-comment', source: 'node-post', target: 'node-comment', type: 'smoothstep' },
-        { id: 'e-user-comment', source: 'node-user', target: 'node-comment', type: 'smoothstep' },
+        {
+          id: 'e-user-post',
+          source: 'node-user',
+          target: 'node-post',
+          type: 'smoothstep',
+        },
+        {
+          id: 'e-post-comment',
+          source: 'node-post',
+          target: 'node-comment',
+          type: 'smoothstep',
+        },
+        {
+          id: 'e-user-comment',
+          source: 'node-user',
+          target: 'node-comment',
+          type: 'smoothstep',
+        },
       ],
     },
   });

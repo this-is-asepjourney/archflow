@@ -24,7 +24,7 @@ const SHAPE_CONFIGS: Record<FlowShape, { bg: string; border: string; borderRadiu
 };
 
 const FlowNode = memo(({ data, selected }: NodeProps) => {
-  const nodeData = data as FlowNodeData;
+  const nodeData = data as unknown as FlowNodeData;
   const shape = nodeData.shape || 'process';
   const config = SHAPE_CONFIGS[shape];
   const label = nodeData.label || 'Step';
@@ -40,7 +40,7 @@ const FlowNode = memo(({ data, selected }: NodeProps) => {
       {['target', 'source'].map((type, idx) => (
         <Handle
           key={`top-${idx}`}
-          type={type as any}
+          type={type as 'source' | 'target'}
           position={Position.Top}
           id={`top-${type}`}
           className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
@@ -50,7 +50,7 @@ const FlowNode = memo(({ data, selected }: NodeProps) => {
       {['target', 'source'].map((type, idx) => (
         <Handle
           key={`bottom-${idx}`}
-          type={type as any}
+          type={type as 'source' | 'target'}
           position={Position.Bottom}
           id={`bottom-${type}`}
           className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}

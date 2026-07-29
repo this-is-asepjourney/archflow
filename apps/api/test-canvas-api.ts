@@ -6,21 +6,21 @@ async function testApi() {
     await fetch('http://localhost:4000/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: 'password123', name: 'Tester' })
+      body: JSON.stringify({ email, password: 'password123', name: 'Tester' }),
     });
-    
+
     const loginRes = await fetch('http://localhost:4000/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: 'password123' })
+      body: JSON.stringify({ email, password: 'password123' }),
     });
     const authData = await loginRes.json();
     const token = authData.access_token;
     console.log('Got token:', token ? 'YES' : 'NO');
 
-    const authHeaders = { 
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json' 
+    const authHeaders = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
     };
 
     // 2. Create workspace
@@ -28,7 +28,7 @@ async function testApi() {
     const wsRes = await fetch('http://localhost:4000/api/workspaces', {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ name: 'Test WS' })
+      body: JSON.stringify({ name: 'Test WS' }),
     });
     const workspace = await wsRes.json();
 
@@ -37,20 +37,23 @@ async function testApi() {
     const projRes = await fetch('http://localhost:4000/api/projects', {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ name: 'Test Project', workspaceId: workspace.id })
+      body: JSON.stringify({ name: 'Test Project', workspaceId: workspace.id }),
     });
     const project = await projRes.json();
 
     // 4. Create Canvas
     console.log('Creating canvas...');
-    const canvasRes = await fetch(`http://localhost:4000/api/projects/${project.id}/canvas`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        name: 'Test Canvas via API',
-        type: 'TOPOLOGY',
-      })
-    });
+    const canvasRes = await fetch(
+      `http://localhost:4000/api/projects/${project.id}/canvas`,
+      {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          name: 'Test Canvas via API',
+          type: 'TOPOLOGY',
+        }),
+      },
+    );
     const canvas = await canvasRes.json();
 
     if (!canvasRes.ok) {

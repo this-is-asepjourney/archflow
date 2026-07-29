@@ -6,10 +6,6 @@ import {
   Plus,
   FolderOpen,
   Network,
-  Workflow,
-  Database,
-  GitBranch,
-  MoreHorizontal,
   Trash2,
   Edit3,
   Search,
@@ -36,12 +32,7 @@ interface Project {
   createdAt: string;
 }
 
-const CANVAS_TYPE_ICONS: Record<string, React.ElementType> = {
-  TOPOLOGY: Network,
-  FLOW: Workflow,
-  ERD: Database,
-  UML: GitBranch,
-};
+
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -65,23 +56,20 @@ export default function DashboardPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectName, setEditProjectName] = useState('');
   const [editProjectDesc, setEditProjectDesc] = useState('');
+  
+  // Delete prompt state
+  const [deletePrompt, setDeletePrompt] = useState<{ type: 'workspace' | 'project', id: string, name: string } | null>(null);
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
-  useEffect(() => {
-    if (templateId) {
-      setShowNewProject(true);
+  const fetchProjects = async (workspaceId: string) => {
+    try {
+      const { data } = await api.get(`/projects?workspaceId=${workspaceId}`);
+      setProjects(data);
+    } catch {
+      setProjects([]);
     }
-  }, [templateId]);
-
-  useEffect(() => {
-    fetchWorkspaces();
-  }, []);
+  };
 
   const fetchWorkspaces = async () => {
-    setLoading(true);
     try {
       const { data } = await api.get('/workspaces');
       setWorkspaces(data);
@@ -96,18 +84,40 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchProjects = async (workspaceId: string) => {
-    try {
-      const { data } = await api.get(`/projects?workspaceId=${workspaceId}`);
-      setProjects(data);
-    } catch {
-      setProjects([]);
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (templateId) {
+      setTimeout(() => setShowNewProject(true), 0);
     }
-  };
+  }, [templateId]);
+
+  useEffect(() => {
+    fetchWorkspaces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
 
   const handleSelectWorkspace = (ws: Workspace) => {
     setActiveWorkspace(ws);
     fetchProjects(ws.id);
+  };
+
+  const handleUpdateWorkspace = async () => {
+    if (!editingWorkspace || !editWorkspaceName.trim()) return;
+    try {
+      const { data } = await api.patch(`/workspaces/${editingWorkspace.id}`, {
+        name: editWorkspaceName,
+      });
+      setWorkspaces((prev) => prev.map(w => w.id === data.id ? data : w));
+      if (activeWorkspace?.id === data.id) {
+        setActiveWorkspace(data);
+      }
+      setEditingWorkspace(null);
+    } catch {}
   };
 
   const handleCreateWorkspace = async () => {
@@ -157,34 +167,22 @@ export default function DashboardPage() {
     } catch {}
   };
 
-  const handleDeleteProject = async (projectId: string) => {
-    if (!confirm('Delete this project?')) return;
+  const executeDelete = async () => {
+    if (!deletePrompt) return;
     try {
-      await api.delete(`/projects/${projectId}`);
-      setProjects((prev) => prev.filter((p) => p.id !== projectId));
-    } catch {}
-  };
-
-  const handleUpdateWorkspace = async () => {
-    if (!editingWorkspace || !editWorkspaceName.trim()) return;
-    try {
-      const { data } = await api.patch(`/workspaces/${editingWorkspace.id}`, { name: editWorkspaceName });
-      setWorkspaces((prev) => prev.map(w => w.id === data.id ? data : w));
-      if (activeWorkspace?.id === data.id) setActiveWorkspace(data);
-      setEditingWorkspace(null);
-    } catch {}
-  };
-
-  const handleDeleteWorkspace = async (workspaceId: string) => {
-    if (!confirm('Are you sure you want to delete this workspace and all its projects?')) return;
-    try {
-      await api.delete(`/workspaces/${workspaceId}`);
-      setWorkspaces((prev) => prev.filter(w => w.id !== workspaceId));
-      if (activeWorkspace?.id === workspaceId) {
-        setActiveWorkspace(null);
-        setProjects([]);
+      if (deletePrompt.type === 'project') {
+        await api.delete(`/projects/${deletePrompt.id}`);
+        setProjects((prev) => prev.filter((p) => p.id !== deletePrompt.id));
+      } else {
+        await api.delete(`/workspaces/${deletePrompt.id}`);
+        setWorkspaces((prev) => prev.filter((w) => w.id !== deletePrompt.id));
+        if (activeWorkspace?.id === deletePrompt.id) {
+          setActiveWorkspace(null);
+          setProjects([]);
+        }
       }
     } catch {}
+    setDeletePrompt(null);
   };
 
   const filteredProjects = projects.filter((p) =>
@@ -289,7 +287,7 @@ export default function DashboardPage() {
                           <Edit3 size={14} />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteWorkspace(ws.id); }}
+                          onClick={(e) => { e.stopPropagation(); setDeletePrompt({ type: 'workspace', id: ws.id, name: ws.name }); }}
                           className="p-1 hover:text-destructive transition-colors"
                           title="Delete Workspace"
                         >
@@ -500,7 +498,7 @@ export default function DashboardPage() {
                           <Edit3 size={14} />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteProject(project.id); }}
+                          onClick={(e) => { e.stopPropagation(); setDeletePrompt({ type: 'project', id: project.id, name: project.name }); }}
                           className="btn btn-ghost btn-icon btn-sm hover:text-destructive transition-colors"
                           style={{ color: 'hsl(var(--foreground-subtle))' }}
                           title="Delete Project"
@@ -530,6 +528,43 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deletePrompt && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+        }}>
+          <div className="glass animate-fade-in" style={{
+            width: '100%', maxWidth: '400px', padding: '1.5rem', borderRadius: '12px', border: '1px solid hsl(var(--destructive) / 0.5)'
+          }}>
+            <h3 style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem', color: 'hsl(var(--destructive))' }}>
+              Delete {deletePrompt.type === 'workspace' ? 'Workspace' : 'Project'}
+            </h3>
+            <p style={{ color: 'hsl(var(--foreground-muted))', fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Are you sure you want to delete the {deletePrompt.type} <strong style={{ color: 'hsl(var(--foreground))' }}>{deletePrompt.name}</strong>?
+              <br/><br/>
+              {deletePrompt.type === 'workspace' 
+                ? 'This will permanently delete this workspace and ALL projects inside it. This action cannot be undone.' 
+                : 'This action is permanent and cannot be undone.'}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setDeletePrompt(null)}>
+                Cancel
+              </button>
+              <button className="btn" style={{ background: 'hsl(var(--destructive))', color: '#fff', border: 'none' }} onClick={executeDelete}>
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

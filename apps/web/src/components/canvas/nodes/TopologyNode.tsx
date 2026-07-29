@@ -2,7 +2,6 @@
 
 import { memo } from 'react';
 import { Handle, Position, NodeProps, NodeResizer } from '@xyflow/react';
-import { LucideIcon } from 'lucide-react';
 
 interface TopologyNodeData {
   label: string;
@@ -10,6 +9,8 @@ interface TopologyNodeData {
   category?: string;
   description?: string;
   ip?: string;
+  subnet?: string;
+  gateway?: string;
   port?: string;
   color?: string;
   selected?: boolean;
@@ -27,56 +28,13 @@ const categoryColors: Record<string, string> = {
   default: '252 87% 67%',
 };
 
-const categoryIcons: Record<string, string> = {
-  // Network
-  router: '🔀',
-  switch: '🔌',
-  firewall: '🛡️',
-  'load-balancer': '⚖️',
-  vpn: '🔒',
-  nginx: '🌐',
-  // Compute
-  server: '🖥️',
-  vm: '💻',
-  docker: '🐳',
-  kubernetes: '☸️',
-  // Cloud
-  aws: '☁️',
-  azure: '☁️',
-  gcp: '☁️',
-  // IoT
-  esp32: '📡',
-  arduino: '🎛️',
-  'raspberry-pi': '🍓',
-  // Data
-  database: '🗄️',
-  redis: '⚡',
-  storage: '💾',
-  kafka: '📨',
-  rabbitmq: '🐇',
-  mqtt: '📡',
-  // App
-  api: '🔗',
-  frontend: '🖥️',
-  backend: '⚙️',
-  microservice: '🔧',
-  // Observability
-  prometheus: '📊',
-  grafana: '📈',
-  loki: '📋',
-  // Endpoints
-  printer: '🖨️',
-  laptop: '💻',
-  pc: '🖥️',
-  mobile: '📱',
-};
+import { DeviceIcon } from './DeviceIcon';
 
 export default memo(TopologyNode);
 
 function TopologyNode({ data, selected }: NodeProps) {
-  const nodeData = data as TopologyNodeData;
+  const nodeData = data as unknown as TopologyNodeData;
   const color = categoryColors[nodeData.category || 'default'] || categoryColors.default;
-  const emoji = categoryIcons[nodeData.label?.toLowerCase().replace(/\s+/g, '-') || ''] || '📦';
 
   return (
     <>
@@ -117,7 +75,7 @@ function TopologyNode({ data, selected }: NodeProps) {
         {['target', 'source'].map((type, idx) => (
           <Handle
             key={`top-${idx}`}
-            type={type as any}
+            type={type as 'source' | 'target'}
             position={Position.Top}
             id={`top-${type}`}
             className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
@@ -134,7 +92,7 @@ function TopologyNode({ data, selected }: NodeProps) {
         {['target', 'source'].map((type, idx) => (
           <Handle
             key={`bottom-${idx}`}
-            type={type as any}
+            type={type as 'source' | 'target'}
             position={Position.Bottom}
             id={`bottom-${type}`}
             className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
@@ -176,12 +134,13 @@ function TopologyNode({ data, selected }: NodeProps) {
             border: `1px solid hsl(${color} / 0.2)`,
             borderRadius: 10,
             fontSize: '1.5rem',
+            marginBottom: '0.25rem',
             lineHeight: 1,
             boxShadow: `inset 0 1px 2px hsl(0 0% 100% / 0.1)`,
             flexShrink: 0,
           }}
         >
-          {emoji}
+          <DeviceIcon type={nodeData.label || ''} size={32} />
         </div>
 
         {/* Label */}
@@ -200,23 +159,26 @@ function TopologyNode({ data, selected }: NodeProps) {
           {nodeData.label}
         </div>
 
-        {/* IP/Port badge */}
-        {nodeData.ip && (
+        {/* IP/Subnet/Gateway badge */}
+        {(nodeData.ip || nodeData.gateway) && (
           <div
             style={{
-              display: 'inline-block',
-              fontSize: '0.65rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              fontSize: '0.6rem',
               color: `hsl(${color} / 0.9)`,
               marginTop: '0.375rem',
               fontFamily: 'monospace',
               background: `hsl(${color} / 0.1)`,
-              padding: '0.15rem 0.4rem',
+              padding: '0.25rem 0.4rem',
               borderRadius: '0.25rem',
               border: `1px solid hsl(${color} / 0.2)`,
+              textAlign: 'left',
             }}
           >
-            {nodeData.ip}
-            {nodeData.port ? `:${nodeData.port}` : ''}
+            {nodeData.ip && <div>IP: {nodeData.ip}{nodeData.subnet ? nodeData.subnet : ''}{nodeData.port ? `:${nodeData.port}` : ''}</div>}
+            {nodeData.gateway && <div>GW: {nodeData.gateway}</div>}
           </div>
         )}
 

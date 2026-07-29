@@ -39,7 +39,7 @@ const visibilityColor = (v: string) => {
 };
 
 const UmlNode = memo(({ data, selected }: NodeProps) => {
-  const nodeData = data as UmlNodeData;
+  const nodeData = data as unknown as UmlNodeData;
   const attrs: UmlAttribute[] = nodeData.attributes || [];
   const methods: UmlMethod[] = nodeData.methods || [];
   
@@ -57,7 +57,7 @@ const UmlNode = memo(({ data, selected }: NodeProps) => {
       {['target', 'source'].map((type, idx) => (
         <Handle
           key={`top-${idx}`}
-          type={type as any}
+          type={type as 'source' | 'target'}
           position={Position.Top}
           id={`top-${type}`}
           className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
@@ -67,7 +67,7 @@ const UmlNode = memo(({ data, selected }: NodeProps) => {
       {['target', 'source'].map((type, idx) => (
         <Handle
           key={`bottom-${idx}`}
-          type={type as any}
+          type={type as 'source' | 'target'}
           position={Position.Bottom}
           id={`bottom-${type}`}
           className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}

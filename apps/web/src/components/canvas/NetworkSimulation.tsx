@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Play, Activity, Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Play, Activity, Terminal } from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
 
 interface NetworkSimulationProps {
@@ -157,25 +157,34 @@ export function NetworkSimulation({ nodes, edges, onClose }: NetworkSimulationPr
       const sameSubnet = isInSameSubnet(srcIp, dstIp, maskBits);
 
       if (!sameSubnet) {
-        addLog(`Nodes are in different subnets. Checking for router in path...`, 'warning');
-        await sleep(800);
+        addLog(`Nodes are in different subnets. Checking default gateway...`, 'warning');
+        await sleep(600);
 
-        // Check if any intermediate node is a router
-        let hasRouter = false;
-        for (let i = 1; i < path.length - 1; i++) {
-          const midNode = nodes.find(n => n.id === path[i]);
-          if (midNode && midNode.data.category === 'network' && (midNode.data.label as string).toLowerCase().includes('router')) {
-            hasRouter = true;
-            break;
-          }
-        }
-
-        if (hasRouter) {
-          addLog(`Router detected in path. Routing packet...`, 'success');
-          await sleep(500);
-        } else {
+        const srcGateway = sourceNode.data.gateway as string;
+        if (!srcGateway) {
           isReachable = false;
-          failReason = 'Different subnets, but no Router found in path.';
+          failReason = 'Source node has no default gateway configured for inter-subnet routing.';
+        } else {
+          addLog(`Gateway configured: ${srcGateway}. Routing packet to gateway...`, 'info');
+          await sleep(600);
+
+          // Check if any intermediate node is a router
+          let hasRouter = false;
+          for (let i = 1; i < path.length - 1; i++) {
+            const midNode = nodes.find(n => n.id === path[i]);
+            if (midNode && midNode.data.category === 'network' && (midNode.data.label as string).toLowerCase().includes('router')) {
+              hasRouter = true;
+              break;
+            }
+          }
+
+          if (hasRouter) {
+            addLog(`Router detected in path. Routing packet...`, 'success');
+            await sleep(500);
+          } else {
+            isReachable = false;
+            failReason = 'Different subnets, but no Router found in physical path.';
+          }
         }
       } else {
         addLog(`Nodes are in the same subnet. Direct communication possible.`, 'success');

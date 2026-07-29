@@ -1,8 +1,7 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { Handle, Position, NodeProps, NodeResizer } from '@xyflow/react';
-import { Plus, Trash2 } from 'lucide-react';
 
 export interface ErdColumn {
   id: string;
@@ -22,7 +21,7 @@ export interface ErdNodeData {
 }
 
 const ErdNode = memo(({ data, selected }: NodeProps) => {
-  const nodeData = data as ErdNodeData;
+  const nodeData = data as unknown as ErdNodeData;
   const tableName = nodeData.tableName || nodeData.label || 'Table';
   const columns: ErdColumn[] = nodeData.columns || [];
   
@@ -40,7 +39,7 @@ const ErdNode = memo(({ data, selected }: NodeProps) => {
       {['target', 'source'].map((type, idx) => (
         <Handle
           key={`top-${idx}`}
-          type={type as any}
+          type={type as 'source' | 'target'}
           position={Position.Top}
           id={`top-${type}`}
           className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
@@ -57,7 +56,7 @@ const ErdNode = memo(({ data, selected }: NodeProps) => {
       {['target', 'source'].map((type, idx) => (
         <Handle
           key={`bottom-${idx}`}
-          type={type as any}
+          type={type as 'source' | 'target'}
           position={Position.Bottom}
           id={`bottom-${type}`}
           className={`transition-opacity duration-200 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}

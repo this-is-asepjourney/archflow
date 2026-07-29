@@ -25,11 +25,6 @@ export default function TemplatesPage() {
   const [categories, setCategories] = useState<TemplateCategory[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = async () => {
     try {
       setLoading(true);
@@ -46,6 +41,10 @@ export default function TemplatesPage() {
     }
   };
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, []);
   if (loading) {
     return <div>Loading templates...</div>;
   }

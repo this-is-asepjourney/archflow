@@ -21,11 +21,7 @@ export default function CanvasPage() {
     initialize();
   }, [initialize]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    loadCanvas();
-    return () => reset();
-  }, [canvasId, isAuthenticated]);
+
 
   const loadCanvas = async () => {
     setLoading(true);
@@ -42,12 +38,20 @@ export default function CanvasPage() {
         edges: data.edges || [],
         viewport: data.viewport || { x: 0, y: 0, zoom: 1 },
       });
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load canvas');
+    } catch (err: unknown) {
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load canvas');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadCanvas();
+    return () => reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasId, isAuthenticated]);
 
   if (loading) {
     return (

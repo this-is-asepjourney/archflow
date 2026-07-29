@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { getPaletteForType } from '@/lib/palette';
+import { DeviceIcon } from './nodes/DeviceIcon';
+import { Network, Server, Cloud, Database, Cpu, Wrench, Activity, Smartphone, Folders, Type, Box } from 'lucide-react';
 
 interface NodePaletteProps {
   canvasType?: string;
-  onDragStart: (event: React.DragEvent, nodeData: any) => void;
+  onDragStart: (event: React.DragEvent, nodeData: Record<string, unknown>) => void;
 }
 
 const categoryColors: Record<string, string> = {
@@ -30,12 +32,12 @@ const categoryColors: Record<string, string> = {
   'flow-cicd': '142 71% 45%',
 };
 
-const categoryIcons: Record<string, string> = {
-  network: '🌐', compute: '🖥️', cloud: '☁️', data: '🗄️',
-  iot: '📡', app: '🔧', observability: '📊', endpoint: '💻',
-  erd: '🗃️',
-  'uml-class': '🏗️', 'uml-usecase': '👤',
-  'flow-basic': '◆', 'flow-swim': '🏊', 'flow-cicd': '🔄',
+const categoryIcons: Record<string, React.ReactNode> = {
+  network: <Network size={16} />, compute: <Server size={16} />, cloud: <Cloud size={16} />, data: <Database size={16} />,
+  iot: <Cpu size={16} />, app: <Wrench size={16} />, observability: <Activity size={16} />, endpoint: <Smartphone size={16} />,
+  erd: <Database size={16} />,
+  'uml-class': <Folders size={16} />, 'uml-usecase': <Type size={16} />,
+  'flow-basic': <Box size={16} />, 'flow-swim': <Box size={16} />, 'flow-cicd': <Box size={16} />,
 };
 
 const diagramTypeLabel: Record<string, string> = {
@@ -216,7 +218,7 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
               {/* Items */}
               {!isCollapsed && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '0.25rem' }}>
-                  {group.items.map((item: any) => (
+                  {group.items.map((item: Record<string, unknown> & { label: string; type: string; category: string; nodeType?: string; defaultData?: Record<string, unknown> & { shape?: string } }) => (
                     <div
                       key={item.label}
                       draggable
@@ -263,16 +265,17 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
                     >
                       <div
                         style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: item.defaultData?.shape === 'decision' ? '1px' : '50%',
-                          background: `linear-gradient(135deg, hsl(${color}), hsl(${color} / 0.6))`,
-                          boxShadow: `0 0 6px hsl(${color} / 0.4)`,
-                          flexShrink: 0,
-                          transform: item.defaultData?.shape === 'decision' ? 'rotate(45deg)' : undefined,
+                          width: 16,
+                          height: 16,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: `hsl(${color})`,
                         }}
-                      />
-                      {item.label}
+                      >
+                        <DeviceIcon type={item.label} size={16} color={`#${color}`} />
+                      </div>
+                      <span>{item.label}</span>
                     </div>
                   ))}
                 </div>

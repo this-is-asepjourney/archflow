@@ -14,16 +14,19 @@ import {
   Node,
   Edge,
   ReactFlowProvider,
+  applyNodeChanges,
+  applyEdgeChanges,
+  reconnectEdge,
+  MarkerType,
   useReactFlow,
   NodeChange,
   EdgeChange,
-  applyNodeChanges,
-  applyEdgeChanges,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 
 import { nodeTypes } from './nodes';
+import { TopologyEdge } from './edges/TopologyEdge';
 import { NodePalette } from './NodePalette';
 import { PropertiesPanel } from './PropertiesPanel';
 import { CanvasToolbar } from './CanvasToolbar';
@@ -34,6 +37,13 @@ import { exportToMermaid, exportToPlantUML } from '@/utils/exportDiagrams';
 import { getLayoutedElements } from '@/utils/layoutElements';
 import { ImportSchemaModal } from './ImportSchemaModal';
 import { NetworkSimulation } from './NetworkSimulation';
+
+const edgeTypes = {
+  smoothstep: TopologyEdge,
+  default: TopologyEdge,
+  straight: TopologyEdge,
+  bezier: TopologyEdge,
+};
 
 interface CanvasEditorProps {
   projectId: string;
@@ -68,9 +78,10 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
 
   const { user } = useAuthStore();
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges);
+  const [nodes, setNodes] = useNodesState(storeNodes);
+  const [edges, setEdges] = useEdgesState(storeEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showImportSchema, setShowImportSchema] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
@@ -121,12 +132,12 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
   const getEdgeDefaults = useCallback((): Partial<Edge> => {
     switch (canvasType) {
       case 'ERD':
-        return { type: 'smoothstep', style: { stroke: 'hsl(38 92% 50% / 0.7)', strokeWidth: 2 }, markerEnd: { type: 'arrowclosed' } as any };
+        return { type: 'smoothstep', style: { stroke: 'hsl(38 92% 50% / 0.7)', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed } };
       case 'UML':
-        return { type: 'smoothstep', style: { stroke: 'hsl(252 87% 67% / 0.7)', strokeWidth: 1.5 }, markerEnd: { type: 'arrowclosed' } as any };
+        return { type: 'smoothstep', style: { stroke: 'hsl(252 87% 67% / 0.7)', strokeWidth: 1.5 }, markerEnd: { type: MarkerType.ArrowClosed } };
       case 'FLOW':
       case 'CICD':
-        return { type: 'smoothstep', animated: true, style: { stroke: 'hsl(210 80% 60% / 0.7)', strokeWidth: 2 }, markerEnd: { type: 'arrowclosed' } as any };
+        return { type: 'smoothstep', animated: true, style: { stroke: 'hsl(210 80% 60% / 0.7)', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed } };
       default:
         return { type: 'smoothstep', style: { stroke: 'hsl(252 87% 67% / 0.6)', strokeWidth: 2 } };
     }
@@ -139,6 +150,7 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
         ...params,
         id: `edge-${uuidv4()}`,
         ...getEdgeDefaults(),
+        reconnectable: true,
       } as Edge;
       const updated = addEdge(newEdge, edges);
       setEdges(updated);
@@ -147,6 +159,22 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
       setTimeout(broadcastUpdate, 0);
     },
     [edges, setEdges, setStoreEdges, pushHistory, getEdgeDefaults, broadcastUpdate, role],
+  );
+
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      if (role === 'VIEWER') return;
+      setEdges((els) => {
+        const updated = reconnectEdge(oldEdge, newConnection, els);
+        setTimeout(() => {
+          setStoreEdges(updated);
+          pushHistory();
+          broadcastUpdate();
+        }, 0);
+        return updated;
+      });
+    },
+    [setEdges, setStoreEdges, pushHistory, broadcastUpdate, role]
   );
 
   // Drag & drop from palette
@@ -195,22 +223,48 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
   // Node selection
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
+    setSelectedEdge(null);
+  }, []);
+
+  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
+    setSelectedEdge(edge);
+    setSelectedNode(null);
   }, []);
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+    setSelectedEdge(null);
   }, []);
 
-  // Update node data from properties panel
   const handleUpdateNodeData = useCallback(
-    (id: string, data: Record<string, any>) => {
-      const updated = nodes.map((n) => (n.id === id ? { ...n, data } : n));
+    (id: string, data: Record<string, unknown>) => {
+      const { _width, _height, ...restData } = data;
+      const updated = nodes.map((n) => {
+        if (n.id === id) {
+          const newStyle = { ...n.style };
+          if (_width) newStyle.width = Number(_width);
+          if (_height) newStyle.height = Number(_height);
+          return { ...n, data: restData, style: Object.keys(newStyle).length > 0 ? newStyle : n.style };
+        }
+        return n;
+      });
       setNodes(updated);
       setStoreNodes(updated);
-      setSelectedNode((prev) => (prev?.id === id ? { ...prev, data } : prev));
+      setSelectedNode((prev) => (prev?.id === id ? { ...prev, data: restData, style: updated.find(u => u.id === id)?.style } : prev));
       setTimeout(broadcastUpdate, 0);
     },
     [nodes, setNodes, setStoreNodes, broadcastUpdate],
+  );
+
+  const handleUpdateEdge = useCallback(
+    (id: string, updates: Partial<Edge>) => {
+      const updated = edges.map((e) => (e.id === id ? { ...e, ...updates } : e));
+      setEdges(updated);
+      setStoreEdges(updated);
+      setSelectedEdge((prev) => (prev?.id === id ? { ...prev, ...updates } : prev));
+      setTimeout(broadcastUpdate, 0);
+    },
+    [edges, setEdges, setStoreEdges, broadcastUpdate],
   );
 
   // Keyboard shortcuts
@@ -365,16 +419,19 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
           )}
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={edges.map(e => ({ ...e, reconnectable: role !== 'VIEWER' }))}
             onNodesChange={role === 'VIEWER' ? undefined : handleNodesChange}
             onEdgesChange={role === 'VIEWER' ? undefined : handleEdgesChange}
             onConnect={role === 'VIEWER' ? undefined : onConnect}
+            onReconnect={role === 'VIEWER' ? undefined : onReconnect}
             onNodeClick={onNodeClick}
+            onEdgeClick={onEdgeClick}
             onNodeDragStop={onNodeDragStop}
             onPaneClick={onPaneClick}
-        onDragOver={onDragOver}
+            onDragOver={onDragOver}
             onDrop={role === 'VIEWER' ? undefined : onDrop}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             onMoveEnd={(_, viewport) => setViewport(viewport)}
             fitView
             nodesDraggable={role !== 'VIEWER'}
@@ -441,8 +498,18 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
         ) : selectedNode && role !== 'VIEWER' ? (
           <PropertiesPanel
             node={selectedNode}
+            edge={null}
             onClose={() => setSelectedNode(null)}
             onUpdate={handleUpdateNodeData}
+            onUpdateEdge={handleUpdateEdge}
+          />
+        ) : selectedEdge && role !== 'VIEWER' ? (
+          <PropertiesPanel
+            node={null}
+            edge={selectedEdge}
+            onClose={() => setSelectedEdge(null)}
+            onUpdate={handleUpdateNodeData}
+            onUpdateEdge={handleUpdateEdge}
           />
         ) : null}
 
