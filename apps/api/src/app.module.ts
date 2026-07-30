@@ -12,6 +12,7 @@ import { RequirementModule } from './modules/requirement/requirement.module';
 import { DocumentationModule } from './modules/documentation/documentation.module';
 import { ApiDesignModule } from './modules/api-design/api-design.module';
 import { TemplatesModule } from './modules/templates/templates.module';
+import { ComponentsModule } from './modules/components/components.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TemplatesModule } from './modules/templates/templates.module';
     DocumentationModule,
     ApiDesignModule,
     TemplatesModule,
+    ComponentsModule,
   ],
   controllers: [AppController],
 })

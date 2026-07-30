@@ -6,6 +6,7 @@ import { Handle, Position, NodeProps, NodeResizer } from '@xyflow/react';
 interface TopologyNodeData {
   label: string;
   icon?: string;
+  iconUrl?: string;
   category?: string;
   description?: string;
   ip?: string;
@@ -140,7 +141,11 @@ function TopologyNode({ data, selected }: NodeProps) {
             flexShrink: 0,
           }}
         >
-          <DeviceIcon type={nodeData.label || ''} size={32} />
+          {nodeData.iconUrl ? (
+            <img src={nodeData.iconUrl} alt={nodeData.label} style={{ width: 24, height: 24, objectFit: 'contain' }} />
+          ) : (
+            <DeviceIcon type={nodeData.label || ''} size={32} />
+          )}
         </div>
 
         {/* Label */}

@@ -215,6 +215,29 @@ function TopologyPanel({ data, node, onChange }: { data: Record<string, unknown>
       <Field label="Spesifikasi (Notes)" value={(data.spesifikasi as string) || ''} onChange={(v) => onChange('spesifikasi', v)} placeholder="Free text notes" multiline />
       <Field label="Tags (comma separated)" value={(data.tags as string) || ''} onChange={(v) => onChange('tags', v)} placeholder="web, prod, critical" />
 
+      {data.custom && Array.isArray(data.propertiesSchema) && data.propertiesSchema.length > 0 && (
+        <>
+          <div className="divider" />
+          <SectionTitle>Custom Properties</SectionTitle>
+          {data.propertiesSchema.map((field: any) => {
+            if (field.type === 'boolean') {
+              return <div key={field.key}>{renderCheckbox(field.label, field.key)}</div>;
+            }
+            if (field.type === 'dropdown' || field.type === 'multi_select') {
+              return <div key={field.key}>{renderSelect(field.label, field.key, field.options || [])}</div>;
+            }
+            return (
+              <Field 
+                key={field.key} 
+                label={field.label} 
+                value={(data[field.key] as string) ?? (field.default || '')} 
+                onChange={(v) => onChange(field.key, v)} 
+              />
+            );
+          })}
+        </>
+      )}
+
       <div className="divider" />
       
       {/* Category: Network */}

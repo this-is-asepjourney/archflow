@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { getPaletteForType } from '@/lib/palette';
 import { DeviceIcon } from './nodes/DeviceIcon';
-import { Network, Server, Cloud, Database, Cpu, Wrench, Activity, Smartphone, Folders, Type, Box } from 'lucide-react';
+import { Network, Server, Cloud, Database, Cpu, Wrench, Activity, Smartphone, Folders, Type, Box, Library } from 'lucide-react';
+import { ComponentLibraryModal } from './ComponentLibraryModal';
+import { api } from '@/lib/api';
+import { useParams } from 'next/navigation';
 
 interface NodePaletteProps {
   canvasType?: string;
@@ -49,11 +52,41 @@ const diagramTypeLabel: Record<string, string> = {
   SEQUENCE: 'Sequence',
 };
 
+interface ComponentItem {
+  id: string;
+  name: string;
+  category: string;
+  typeKey: string;
+  iconUrl?: string;
+  description?: string;
+  vendor?: string;
+  visibility: string;
+  propertiesSchema?: any;
+}
+
 export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
   const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const PALETTE = getPaletteForType(canvasType);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [customComponents, setCustomComponents] = useState<ComponentItem[]>([]);
+  const params = useParams();
+  const projectId = params?.id as string;
+  const [workspaceId, setWorkspaceId] = useState<string | undefined>();
+
+  // Fetch project details to get workspaceId, then fetch components
+  useEffect(() => {
+    if (!projectId) return;
+    api.get(`/projects/${projectId}`)
+      .then(res => {
+        const wId = res.data.workspaceId;
+        setWorkspaceId(wId);
+        return api.get(`/components?workspaceId=${wId}`);
+      })
+      .then(res => setCustomComponents(res.data))
+      .catch(err => console.error('Failed to load custom components', err));
+  }, [projectId]);
 
   const toggleCategory = (cat: string) => {
     setCollapsed((prev) => {
@@ -72,6 +105,32 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
         ),
       })).filter((g) => g.items.length > 0)
     : PALETTE;
+
+  // Append custom components to the filtered groups
+  const finalFiltered = [...filtered];
+  customComponents.forEach(comp => {
+    // If searching, filter custom components
+    if (search && !comp.name.toLowerCase().includes(search.toLowerCase())) return;
+
+    let group = finalFiltered.find(g => g.category === comp.category);
+    if (!group) {
+      group = { category: comp.category, label: comp.category.charAt(0).toUpperCase() + comp.category.slice(1), items: [] };
+      finalFiltered.push(group);
+    }
+    
+    // Convert to palette item format
+    group.items.push({
+      label: comp.name,
+      type: 'custom',
+      category: comp.category,
+      nodeType: comp.typeKey,
+      defaultData: {
+        iconUrl: comp.iconUrl,
+        custom: true,
+        propertiesSchema: comp.propertiesSchema,
+      }
+    } as any);
+  });
 
   return (
     <div
@@ -157,7 +216,7 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
           gap: '0.5rem',
         }}
       >
-        {filtered.map((group) => {
+        {finalFiltered.map((group) => {
           const isCollapsed = collapsed.has(group.category);
           const color = categoryColors[group.category] || '252 87% 67%';
           return (
@@ -273,7 +332,11 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
                           color: `hsl(${color})`,
                         }}
                       >
-                        <DeviceIcon type={item.label} size={16} color={`#${color}`} />
+                        {item.defaultData?.iconUrl ? (
+                          <img src={item.defaultData.iconUrl as string} alt={item.label} style={{ width: 16, height: 16, objectFit: 'contain' }} />
+                        ) : (
+                          <DeviceIcon type={item.label} size={16} color={`#${color}`} />
+                        )}
                       </div>
                       <span>{item.label}</span>
                     </div>
@@ -284,6 +347,30 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
           );
         })}
       </div>
+      
+      {/* Footer / Component Library Button */}
+      <div style={{ padding: '1rem', borderTop: '1px solid hsl(var(--border) / 0.5)', background: 'hsl(var(--surface-2) / 0.3)', flexShrink: 0 }}>
+        <button 
+          className="btn btn-secondary" 
+          style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '0.5rem', alignItems: 'center' }}
+          onClick={() => setIsLibraryOpen(true)}
+        >
+          <Library size={16} /> Component Library
+        </button>
+      </div>
+
+      <ComponentLibraryModal 
+        isOpen={isLibraryOpen} 
+        onClose={() => setIsLibraryOpen(false)} 
+        workspaceId={workspaceId}
+        onUploadSuccess={() => {
+          // Refetch components
+          if (workspaceId) {
+            api.get(`/components?workspaceId=${workspaceId}`)
+              .then(res => setCustomComponents(res.data));
+          }
+        }}
+      />
     </div>
   );
 }
