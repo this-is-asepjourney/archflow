@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Plus, Trash2 } from 'lucide-react';
-import { uploadComponentIcon, createComponent } from '@/lib/api';
+import { uploadComponentIcon, createComponent, updateComponent } from '@/lib/api';
 
 interface UploadComponentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  workspaceId?: string;
-  onSuccess?: () => void;
+  workspaceId: string;
+  onSuccess: () => void;
+  initialData?: Record<string, unknown> | null;
 }
 
 interface PropertyField {
@@ -18,7 +19,7 @@ interface PropertyField {
   required?: boolean;
 }
 
-export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess }: UploadComponentModalProps) {
+export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess, initialData }: UploadComponentModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,6 +34,33 @@ export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess }
 
   // Properties Schema State
   const [fields, setFields] = useState<PropertyField[]>([]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setName((initialData.name as string) || '');
+        setCategory((initialData.category as string) || 'iot');
+        setDescription((initialData.description as string) || '');
+        setVendor((initialData.vendor as string) || '');
+        setVisibility((initialData.visibility as string) || 'workspace');
+        if (initialData.iconUrl) setIconPreview(initialData.iconUrl as string);
+        if (initialData.propertiesSchema) {
+          setFields(initialData.propertiesSchema as PropertyField[]);
+        }
+        setIconFile(null); // Reset file
+      } else {
+        setName('');
+        setCategory('iot');
+        setDescription('');
+        setVendor('');
+        setIconPreview(null);
+        setVisibility('private');
+        setFields([]);
+        setIconFile(null);
+      }
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -66,7 +94,7 @@ export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess }
   };
 
   const handleSubmit = async () => {
-    if (!name || !iconFile) {
+    if (!name || (!iconFile && !iconPreview)) {
       alert('Name and Icon are required!');
       return;
     }
@@ -85,14 +113,17 @@ export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess }
 
     setIsLoading(true);
     try {
-      // 1. Upload Icon
-      const uploadRes = await uploadComponentIcon(iconFile);
-      const iconUrl = uploadRes.data.url;
+      let iconUrl = initialData?.iconUrl;
+      // 1. Upload Icon if changed
+      if (iconFile) {
+        const uploadRes = await uploadComponentIcon(iconFile);
+        iconUrl = uploadRes.data.url;
+      }
 
-      // 2. Create Component
-      const typeKey = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      // 2. Create/Update Component
+      const typeKey = initialData?.typeKey || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       
-      await createComponent({
+      const payload = {
         name,
         category,
         typeKey,
@@ -102,13 +133,19 @@ export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess }
         propertiesSchema: fields,
         visibility,
         workspaceId,
-      });
+      };
+
+      if (initialData?.id) {
+        await updateComponent(initialData.id, payload);
+      } else {
+        await createComponent(payload);
+      }
 
       if (onSuccess) onSuccess();
     } catch (err: unknown) {
       console.error(err);
       const e = err as { response?: { data?: { message?: string } } };
-      alert(e.response?.data?.message || 'Failed to create component');
+      alert(e.response?.data?.message || 'Failed to save component');
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +190,9 @@ export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess }
             background: 'hsl(var(--surface-2) / 0.5)',
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>Upload Custom Component</h2>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>
+            {initialData ? 'Edit Custom Component' : 'Upload Custom Component'}
+          </h2>
           <button
             onClick={onClose}
             style={{ background: 'transparent', border: 'none', color: 'hsl(var(--foreground-muted))', cursor: 'pointer' }}
@@ -194,6 +233,7 @@ export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess }
                   style={{ width: 64, height: 64, borderRadius: '0.5rem', border: '1px dashed hsl(var(--border))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--surface-2))', cursor: 'pointer' }}
                   onClick={() => fileInputRef.current?.click()}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   {iconPreview ? <img src={iconPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '0.25rem' }} /> : <Upload size={24} style={{ color: 'hsl(var(--foreground-muted))' }} />}
                 </div>
                 <input type="file" accept="image/png, image/svg+xml" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />

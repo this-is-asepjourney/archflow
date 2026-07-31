@@ -6,8 +6,10 @@ import { getPaletteForType } from '@/lib/palette';
 import { DeviceIcon } from './nodes/DeviceIcon';
 import { Network, Server, Cloud, Database, Cpu, Wrench, Activity, Smartphone, Folders, Type, Box, Library } from 'lucide-react';
 import { ComponentLibraryModal } from './ComponentLibraryModal';
+import { UploadComponentModal } from './UploadComponentModal';
 import { api } from '@/lib/api';
 import { useParams } from 'next/navigation';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 interface NodePaletteProps {
   canvasType?: string;
@@ -53,6 +55,7 @@ const diagramTypeLabel: Record<string, string> = {
 };
 
 interface ComponentItem {
+  [key: string]: unknown;
   id: string;
   name: string;
   category: string;
@@ -61,7 +64,22 @@ interface ComponentItem {
   description?: string;
   vendor?: string;
   visibility: string;
-  propertiesSchema?: any;
+  propertiesSchema?: unknown;
+  createdById?: string;
+}
+
+interface PaletteItem {
+  label: string;
+  type: string;
+  category: string;
+  nodeType?: string;
+  defaultData?: Record<string, unknown> & { shape?: string; iconUrl?: string; custom?: boolean; id?: string; createdById?: string };
+}
+
+interface PaletteGroup {
+  category: string;
+  label: string;
+  items: PaletteItem[];
 }
 
 export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
@@ -74,6 +92,8 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
   const params = useParams();
   const projectId = params?.id as string;
   const [workspaceId, setWorkspaceId] = useState<string | undefined>();
+  const [editingComponent, setEditingComponent] = useState<ComponentItem | null>(null);
+  const { user } = useAuthStore();
 
   // Fetch project details to get workspaceId, then fetch components
   useEffect(() => {
@@ -107,7 +127,7 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
     : PALETTE;
 
   // Append custom components to the filtered groups
-  const finalFiltered = [...filtered];
+  const finalFiltered: PaletteGroup[] = [...filtered] as PaletteGroup[];
   customComponents.forEach(comp => {
     // If searching, filter custom components
     if (search && !comp.name.toLowerCase().includes(search.toLowerCase())) return;
@@ -125,12 +145,43 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
       category: comp.category,
       nodeType: comp.typeKey,
       defaultData: {
+        id: comp.id,
+        createdById: comp.createdById,
         iconUrl: comp.iconUrl,
         custom: true,
         propertiesSchema: comp.propertiesSchema,
+        description: comp.description,
+        vendor: comp.vendor,
+        visibility: comp.visibility,
+        name: comp.name,
+        typeKey: comp.typeKey,
+        category: comp.category,
       }
-    } as any);
+    });
   });
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this custom component?')) {
+      try {
+        await api.delete(`/components/${id}`);
+        // Refetch components
+        api.get(`/components?workspaceId=${workspaceId}`).then(res => setCustomComponents(res.data));
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete component');
+      }
+    }
+  };
+
+  const handleEdit = (item: PaletteItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const compId = item.defaultData?.id;
+    const fullComp = customComponents.find((c) => c.id === compId);
+    if (fullComp) {
+      setEditingComponent(fullComp);
+    }
+  };
 
   return (
     <div
@@ -148,6 +199,14 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
         zIndex: 40,
       }}
     >
+      <style>{`
+        .component-item .component-actions {
+          display: none;
+        }
+        .component-item:hover .component-actions {
+          display: flex !important;
+        }
+      `}</style>
       {/* Header */}
       <div
         style={{
@@ -277,9 +336,10 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
               {/* Items */}
               {!isCollapsed && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '0.25rem' }}>
-                  {group.items.map((item: Record<string, unknown> & { label: string; type: string; category: string; nodeType?: string; defaultData?: Record<string, unknown> & { shape?: string } }) => (
+                  {group.items.map((item: PaletteItem, idx) => (
                     <div
-                      key={item.label}
+                      className="component-item"
+                      key={`${item.label}-${idx}`}
                       draggable
                       onDragStart={(e) =>
                         onDragStart(e, {
@@ -333,12 +393,37 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
                         }}
                       >
                         {item.defaultData?.iconUrl ? (
-                          <img src={item.defaultData.iconUrl as string} alt={item.label} style={{ width: 16, height: 16, objectFit: 'contain' }} />
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.defaultData.iconUrl} alt={item.label} style={{ width: 16, height: 16, objectFit: 'contain' }} />
                         ) : (
                           <DeviceIcon type={item.label} size={16} color={`#${color}`} />
                         )}
                       </div>
-                      <span>{item.label}</span>
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      
+                      {/* Actions for custom components */}
+                      {item.defaultData?.custom && item.defaultData?.createdById === user?.id && (
+                        <div className="component-actions" style={{ display: 'none', gap: '0.25rem' }}>
+                          <button
+                            onClick={(e) => handleEdit(item, e)}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 2, color: 'hsl(var(--foreground-muted))' }}
+                            title="Edit Component"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              if (item.defaultData?.id) {
+                                handleDelete(item.defaultData.id, e);
+                              }
+                            }}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 2, color: 'hsl(var(--destructive))' }}
+                            title="Delete Component"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -371,6 +456,22 @@ export function NodePalette({ canvasType, onDragStart }: NodePaletteProps) {
           }
         }}
       />
+
+      {editingComponent && (
+        <UploadComponentModal
+          isOpen={true}
+          onClose={() => setEditingComponent(null)}
+          workspaceId={workspaceId as string}
+          initialData={editingComponent}
+          onSuccess={() => {
+            setEditingComponent(null);
+            if (workspaceId) {
+              api.get(`/components?workspaceId=${workspaceId}`)
+                .then(res => setCustomComponents(res.data));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -105,6 +105,17 @@ function CanvasEditorInner({ projectId, canvasId }: CanvasEditorProps) {
     };
   }, [user, canvasId, connectSocket, disconnectSocket]);
 
+  // Autosave
+  useEffect(() => {
+    if (!isDirty || role === 'VIEWER') return;
+    
+    const timeout = setTimeout(() => {
+      saveCanvas();
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [isDirty, saveCanvas, role]);
+
   // Sync local → store on change
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {

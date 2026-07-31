@@ -30,6 +30,7 @@ export function NodeLinkPicker({ projectId, linkedNodeIds, onChange }: NodeLinkP
 
   useEffect(() => {
     if (!isOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     api
       .get(`/projects/${projectId}/canvas`)

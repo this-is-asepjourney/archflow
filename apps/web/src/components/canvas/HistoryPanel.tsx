@@ -37,7 +37,9 @@ export function HistoryPanel({ canvasId, onClose }: HistoryPanelProps) {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasId]);
 
   const handleRestore = async (historyId: string) => {

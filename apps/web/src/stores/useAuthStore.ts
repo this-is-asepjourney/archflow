@@ -22,22 +22,18 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: null,
+  token: null, // Note: keeping token state null as it's in httpOnly cookie now, or we can just leave it for backward compatibility
   isLoading: false,
   isAuthenticated: false,
 
-  initialize: () => {
+  initialize: async () => {
     if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('archflow_token');
-    const userStr = localStorage.getItem('archflow_user');
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        set({ user, token, isAuthenticated: true });
-      } catch {
-        localStorage.removeItem('archflow_token');
-        localStorage.removeItem('archflow_user');
-      }
+    set({ isLoading: true });
+    try {
+      const { data } = await api.get('/auth/me');
+      set({ user: data, isAuthenticated: true, isLoading: false });
+    } catch {
+      set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
 
@@ -45,10 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.post('/auth/login', { email, password });
-      const { user, access_token } = data;
-      localStorage.setItem('archflow_token', access_token);
-      localStorage.setItem('archflow_user', JSON.stringify(user));
-      set({ user, token: access_token, isAuthenticated: true, isLoading: false });
+      set({ user: data.user, isAuthenticated: true, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -59,20 +52,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.post('/auth/register', { name, email, password });
-      const { user, access_token } = data;
-      localStorage.setItem('archflow_token', access_token);
-      localStorage.setItem('archflow_user', JSON.stringify(user));
-      set({ user, token: access_token, isAuthenticated: true, isLoading: false });
+      set({ user: data.user, isAuthenticated: true, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
       throw error;
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('archflow_token');
-    localStorage.removeItem('archflow_user');
-    set({ user: null, token: null, isAuthenticated: false });
+  logout: async () => {
+    set({ isLoading: true });
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      // ignore
+    }
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false });
     window.location.href = '/login';
   },
 }));

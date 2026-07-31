@@ -7,17 +7,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-// Attach JWT token to every request
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('archflow_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  }
-  return config;
+  withCredentials: true,
 });
 
 // Handle 401 — redirect to login
@@ -26,8 +16,6 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('archflow_token');
-        localStorage.removeItem('archflow_user');
         window.location.href = '/login';
       }
     }
@@ -63,6 +51,14 @@ export async function createComponent(data: Record<string, unknown>) {
 
 export async function getComponents(workspaceId?: string) {
   return api.get('/components', { params: { workspaceId } });
+}
+
+export async function updateComponent(id: string, data: Record<string, unknown>) {
+  return api.patch(`/components/${id}`, data);
+}
+
+export async function deleteComponent(id: string) {
+  return api.delete(`/components/${id}`);
 }
 
 export default api;

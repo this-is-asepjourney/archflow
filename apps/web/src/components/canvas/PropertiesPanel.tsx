@@ -150,12 +150,37 @@ function EdgePanel({ edge, onChange }: { edge: Edge; onChange: (updates: Partial
         <label style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--foreground-muted))', marginBottom: '0.3rem' }}>Label</label>
         <input 
           type="text" 
-          value={typeof edge.label === 'string' ? edge.label : ''} 
-          onChange={(e) => onChange({ label: e.target.value })} 
+          value={(edge.data?.label as string) || ''} 
+          onChange={(e) => onChange({ data: { ...edge.data, label: e.target.value } })} 
           placeholder="e.g. TCP/IP" 
           className="input" 
           style={{ fontSize: '0.8125rem' }} 
         />
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.875rem' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--foreground-muted))', marginBottom: '0.3rem' }}>Source IP</label>
+          <input 
+            type="text" 
+            value={(edge.data?.sourceIp as string) || ''} 
+            onChange={(e) => onChange({ data: { ...edge.data, sourceIp: e.target.value } })} 
+            placeholder="e.g. 192.168.1.1" 
+            className="input" 
+            style={{ fontSize: '0.8125rem', fontFamily: 'monospace' }} 
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--foreground-muted))', marginBottom: '0.3rem' }}>Target IP</label>
+          <input 
+            type="text" 
+            value={(edge.data?.targetIp as string) || ''} 
+            onChange={(e) => onChange({ data: { ...edge.data, targetIp: e.target.value } })} 
+            placeholder="e.g. 192.168.1.2" 
+            className="input" 
+            style={{ fontSize: '0.8125rem', fontFamily: 'monospace' }} 
+          />
+        </div>
       </div>
 
       <div style={{ marginBottom: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -219,7 +244,7 @@ function TopologyPanel({ data, node, onChange }: { data: Record<string, unknown>
         <>
           <div className="divider" />
           <SectionTitle>Custom Properties</SectionTitle>
-          {data.propertiesSchema.map((field: any) => {
+          {data.propertiesSchema.map((field: { key: string; label: string; type: string; options?: string[]; default?: string }) => {
             if (field.type === 'boolean') {
               return <div key={field.key}>{renderCheckbox(field.label, field.key)}</div>;
             }

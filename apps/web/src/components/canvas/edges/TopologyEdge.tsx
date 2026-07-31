@@ -28,8 +28,9 @@ export function TopologyEdge({
   const sourceNode = getNode(source);
   const targetNode = getNode(target);
   
-  const sourceIp = sourceNode?.data?.ip as string;
-  const targetIp = targetNode?.data?.ip as string;
+  // Fallback to node IP if not specified in edge data
+  const sourceIp = (data?.sourceIp as string) || (sourceNode?.data?.ip as string);
+  const targetIp = (data?.targetIp as string) || (targetNode?.data?.ip as string);
 
   let edgePath = '';
   let labelX = 0;

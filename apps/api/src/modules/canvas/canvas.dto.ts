@@ -1,6 +1,7 @@
 import {
   IsNotEmpty,
   IsObject,
+  IsArray,
   IsOptional,
   IsString,
   IsIn,
@@ -29,11 +30,11 @@ export class UpdateCanvasDto {
   @IsOptional()
   name?: string;
 
-  @IsObject()
+  @IsArray()
   @IsOptional()
   nodes?: any[];
 
-  @IsObject()
+  @IsArray()
   @IsOptional()
   edges?: any[];
 

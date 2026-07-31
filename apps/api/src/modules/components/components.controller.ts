@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Delete,
@@ -14,10 +15,15 @@ import {
 } from '@nestjs/common';
 import { ComponentsService } from './components.service';
 import { CreateComponentDto } from './dto/create-component.dto';
+import { UpdateComponentDto } from './dto/update-component.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+
+interface RequestWithUser {
+  user: { id: string };
+}
 
 @Controller('components')
 @UseGuards(JwtAuthGuard)
@@ -29,15 +35,27 @@ export class ComponentsController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
-        filename: (req: any, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        filename: (
+          req: any,
+          file: Express.Multer.File,
+          cb: (error: Error | null, filename: string) => void,
+        ) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
           cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
         },
       }),
-      fileFilter: (req: any, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
+      fileFilter: (
+        req: any,
+        file: Express.Multer.File,
+        cb: (error: Error | null, acceptFile: boolean) => void,
+      ) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|svg\+xml)$/)) {
-          return cb(new BadRequestException('Only image files are allowed!'), false);
+          return cb(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
         }
         cb(null, true);
       },
@@ -54,8 +72,8 @@ export class ComponentsController {
   }
 
   @Post()
-  create(@Request() req: any, @Body() createDto: CreateComponentDto) {
-    return this.componentsService.create(req.user?.userId as string, createDto);
+  create(@Body() dto: CreateComponentDto, @Request() req: RequestWithUser) {
+    return this.componentsService.create(req.user.id, dto);
   }
 
   @Get()
@@ -63,8 +81,17 @@ export class ComponentsController {
     return this.componentsService.findAll(workspaceId);
   }
 
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateComponentDto,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.componentsService.update(id, req.user.id, dto);
+  }
+
   @Delete(':id')
-  remove(@Request() req: any, @Param('id') id: string) {
-    return this.componentsService.remove(id, req.user?.userId as string);
+  remove(@Request() req: RequestWithUser, @Param('id') id: string) {
+    return this.componentsService.remove(id, req.user.id);
   }
 }

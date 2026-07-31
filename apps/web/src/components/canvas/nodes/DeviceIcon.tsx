@@ -13,10 +13,9 @@ import {
   Network,
   Box,
   HardDrive,
-  Share2,
   Lock,
-  Globe,
-  Printer
+  Printer,
+  Share2
 } from 'lucide-react';
 
 interface DeviceIconProps {
@@ -89,14 +88,17 @@ export function DeviceIcon({ type, size = 24, className = '' }: DeviceIconProps)
   if (brandMap[normalizedType]) {
     const slug = brandMap[normalizedType];
     return (
-      <img
-        src={`https://cdn.simpleicons.org/${slug}`}
-        alt={type}
-        width={size}
-        height={size}
-        className={className}
-        style={{ objectFit: 'contain' }}
-      />
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`https://cdn.simpleicons.org/${slug}`}
+          alt={type}
+          width={size}
+          height={size}
+          className={className}
+          style={{ objectFit: 'contain' }}
+        />
+      </>
     );
   }
 
