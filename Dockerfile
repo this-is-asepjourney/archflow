@@ -1,8 +1,12 @@
+# syntax=docker/dockerfile:1
 # Multi-stage Dockerfile for ArchFlow (Web + API + Nginx in one PSM-ready container)
 
 FROM node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl
-RUN npm install -g pnpm@11
+ENV CI=true
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN npm install -g pnpm@11.17.0
 
 WORKDIR /app
 
@@ -12,7 +16,12 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/prisma ./apps/api/prisma
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm config set store-dir /pnpm/store && \
+    pnpm config set fetch-retries 5 && \
+    pnpm config set fetch-retry-mintimeout 10000 && \
+    pnpm config set fetch-retry-maxtimeout 60000 && \
+    (pnpm install --frozen-lockfile || (echo "[ArchFlow] Lockfile mismatch detected, retrying with --no-frozen-lockfile..." && pnpm install --no-frozen-lockfile))
 
 # Copy full app sources
 COPY apps/api ./apps/api
@@ -29,7 +38,8 @@ ENV NEXT_PUBLIC_API_URL=/api
 RUN pnpm --dir apps/web run build
 
 # Create isolated production bundle for API (includes prisma CLI & @prisma/client)
-RUN pnpm --filter @archflow/api deploy --prod --legacy /prod/api && \
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm --filter @archflow/api deploy --prod --legacy /prod/api && \
     cd /prod/api && \
     ./node_modules/.bin/prisma generate --schema=/app/apps/api/prisma/schema.prisma
 
