@@ -18,6 +18,10 @@ COPY apps/api/prisma ./apps/api/prisma
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
+    pnpm config set trust-lockfile true && \
+    pnpm config set prefer-offline true && \
+    pnpm config set network-concurrency 4 && \
+    pnpm config set fetch-timeout 120000 && \
     pnpm config set fetch-retries 5 && \
     pnpm config set fetch-retry-mintimeout 10000 && \
     pnpm config set fetch-retry-maxtimeout 60000 && \
@@ -37,9 +41,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_API_URL=/api
 RUN pnpm --dir apps/web run build
 
-# Create isolated production bundle for API (includes prisma CLI & @prisma/client)
+# Create isolated production bundle for API from shared lockfile (uses pnpm store offline; avoids --legacy workspace re-resolution)
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm --filter @archflow/api deploy --prod --legacy /prod/api && \
+    (pnpm --filter @archflow/api --config.inject-workspace-packages=true --config.offline=true --config.trust-lockfile=true deploy --prod /prod/api || \
+     pnpm --filter @archflow/api --config.inject-workspace-packages=true --config.prefer-offline=true --config.trust-lockfile=true deploy --prod /prod/api) && \
     cd /prod/api && \
     ./node_modules/.bin/prisma generate --schema=/app/apps/api/prisma/schema.prisma
 
