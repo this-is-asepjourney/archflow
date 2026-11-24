@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@archflow/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,6 +13,7 @@
     "@xyflow/react": "^12.11.2",
     "axios": "^1.18.1",
     "clsx": "^2.1.1",
+    "dagre": "^0.8.5",
     "date-fns": "^4.4.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.25.0",

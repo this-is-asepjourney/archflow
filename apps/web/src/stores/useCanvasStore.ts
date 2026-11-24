@@ -60,9 +60,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   socket: null,
 
   connectSocket: (canvasId, user) => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
+    const rawUrl =
+      process.env.NEXT_PUBLIC_SOCKET_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      '';
+    const socketUrl = rawUrl.startsWith('http')
+      ? rawUrl.replace(/\/api\/?$/, '')
+      : undefined;
+    const socket = io(socketUrl, { withCredentials: true });
     socket.emit('join-canvas', { canvasId, user });
-    
+
     socket.on('canvas-updated', (data: { nodes: Node[]; edges: Edge[] }) => {
       get().updateFromBroadcast(data.nodes, data.edges);
     });

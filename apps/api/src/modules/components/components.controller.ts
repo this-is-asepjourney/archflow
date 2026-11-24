@@ -18,8 +18,12 @@ import { CreateComponentDto } from './dto/create-component.dto';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { mkdirSync } from 'fs';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
+
+const getUploadDir = () =>
+  process.env.UPLOAD_DIR || join(process.cwd(), 'uploads');
 
 interface RequestWithUser {
   user: { id: string };
@@ -34,7 +38,15 @@ export class ComponentsController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploads',
+        destination: (
+          _req: any,
+          _file: Express.Multer.File,
+          cb: (error: Error | null, destination: string) => void,
+        ) => {
+          const uploadDir = getUploadDir();
+          mkdirSync(uploadDir, { recursive: true });
+          cb(null, uploadDir);
+        },
         filename: (
           req: any,
           file: Express.Multer.File,
@@ -65,9 +77,12 @@ export class ComponentsController {
     if (!file) {
       throw new BadRequestException('File is required');
     }
-    // Return the URL that the frontend can use to access the uploaded file
+    const publicBase = (process.env.PUBLIC_UPLOAD_BASE_URL || '').replace(
+      /\/$/,
+      '',
+    );
     return {
-      url: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/uploads/${file.filename}`,
+      url: `${publicBase}/uploads/${file.filename}`,
     };
   }
 

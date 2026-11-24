@@ -5,7 +5,7 @@ import { uploadComponentIcon, createComponent, updateComponent } from '@/lib/api
 interface UploadComponentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  workspaceId: string;
+  workspaceId?: string;
   onSuccess: () => void;
   initialData?: Record<string, unknown> | null;
 }
@@ -135,7 +135,7 @@ export function UploadComponentModal({ isOpen, onClose, workspaceId, onSuccess, 
         workspaceId,
       };
 
-      if (initialData?.id) {
+      if (typeof initialData?.id === 'string') {
         await updateComponent(initialData.id, payload);
       } else {
         await createComponent(payload);

@@ -26,7 +26,7 @@ const navItems = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, initialize, logout } = useAuthStore();
+  const { user, isAuthenticated, isLoading, hasInitialized, initialize, logout } = useAuthStore();
   const [sidebarOpen] = useState(true);
 
   useEffect(() => {
@@ -34,11 +34,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [initialize]);
 
   useEffect(() => {
-    if (!isAuthenticated && typeof window !== 'undefined') {
-      const token = localStorage.getItem('archflow_token');
-      if (!token) router.push('/login');
+    if (hasInitialized && !isLoading && !isAuthenticated) {
+      router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [hasInitialized, isLoading, isAuthenticated, router]);
 
   if (!isAuthenticated && !user) {
     return (

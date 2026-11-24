@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -8,15 +7,24 @@ describe('AppController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
     }).compile();
 
     appController = app.get<AppController>(AppController);
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return API status info', () => {
+      expect(appController.getRoot()).toEqual({
+        name: 'ArchFlow API',
+        version: '1.0.0',
+        status: 'running',
+      });
+    });
+
+    it('should return health status ok', () => {
+      const result = appController.health() as { status: string; timestamp: string };
+      expect(result.status).toBe('ok');
+      expect(typeof result.timestamp).toBe('string');
     });
   });
 });

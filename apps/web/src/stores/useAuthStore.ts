@@ -14,6 +14,7 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasInitialized: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -25,15 +26,26 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null, // Note: keeping token state null as it's in httpOnly cookie now, or we can just leave it for backward compatibility
   isLoading: false,
   isAuthenticated: false,
+  hasInitialized: false,
 
   initialize: async () => {
     if (typeof window === 'undefined') return;
     set({ isLoading: true });
     try {
       const { data } = await api.get('/auth/me');
-      set({ user: data, isAuthenticated: true, isLoading: false });
+      set({
+        user: data,
+        isAuthenticated: true,
+        isLoading: false,
+        hasInitialized: true,
+      });
     } catch {
-      set({ user: null, isAuthenticated: false, isLoading: false });
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        hasInitialized: true,
+      });
     }
   },
 
@@ -41,7 +53,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.post('/auth/login', { email, password });
-      set({ user: data.user, isAuthenticated: true, isLoading: false });
+      set({
+        user: data.user,
+        isAuthenticated: true,
+        isLoading: false,
+        hasInitialized: true,
+      });
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -52,7 +69,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.post('/auth/register', { name, email, password });
-      set({ user: data.user, isAuthenticated: true, isLoading: false });
+      set({
+        user: data.user,
+        isAuthenticated: true,
+        isLoading: false,
+        hasInitialized: true,
+      });
     } catch (error) {
       set({ isLoading: false });
       throw error;

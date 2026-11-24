@@ -38,7 +38,13 @@ export class AuthController {
 
   @Post('logout')
   logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('access_token');
+    const secure = process.env.COOKIE_SECURE === 'true';
+    response.clearCookie('access_token', {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: '/',
+    });
     return { message: 'Logged out successfully' };
   }
 
@@ -49,10 +55,12 @@ export class AuthController {
   }
 
   private setTokenCookie(response: Response, token: string) {
+    const secure = process.env.COOKIE_SECURE === 'true';
     response.cookie('access_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure,
       sameSite: 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
